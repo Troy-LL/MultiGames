@@ -117,6 +117,11 @@ button {
   max-width: 1080px;
   margin: 0 auto;
   padding: 1rem clamp(0.75rem, 3vw, 1.5rem) 2rem;
+  /* Respect notches / home indicator when viewport-fit=cover is active. */
+  padding-top: calc(1rem + env(safe-area-inset-top, 0px));
+  padding-right: calc(clamp(0.75rem, 3vw, 1.5rem) + env(safe-area-inset-right, 0px));
+  padding-bottom: calc(2rem + env(safe-area-inset-bottom, 0px));
+  padding-left: calc(clamp(0.75rem, 3vw, 1.5rem) + env(safe-area-inset-left, 0px));
   display: flex;
   flex-direction: column;
   min-height: 100%;
@@ -479,6 +484,8 @@ button {
   display: grid;
   place-items: center;
   padding: 1.5rem;
+  padding-top: calc(1.5rem + env(safe-area-inset-top, 0px));
+  padding-bottom: calc(1.5rem + env(safe-area-inset-bottom, 0px));
 }
 .join-card {
   width: min(100%, 380px);
