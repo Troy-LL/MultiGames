@@ -29,7 +29,7 @@ export interface PartyGame {
   join: (name: string, color: string) => void
 }
 
-const FLASH_MS = 800
+const FLASH_MS = 900
 
 export function usePartyGame(
   room: string,
