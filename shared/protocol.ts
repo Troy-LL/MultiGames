@@ -21,6 +21,12 @@ export interface ChatMessage {
 }
 
 export interface GameSnapshot {
+  /**
+   * Monotonic id for the current board. Bumped on every new game so the
+   * server can reject actions that were sent for a previous board (e.g. a
+   * `fill` that was in flight when another player started a new game).
+   */
+  version: number
   /** Original clues; 0 = empty. Used to know which cells are locked. */
   puzzle: number[]
   /** True where the cell is a fixed clue and cannot be edited. */
@@ -31,11 +37,17 @@ export interface GameSnapshot {
   difficulty: Difficulty
 }
 
+/** Identifies who made the most recent cell change, for UI feedback. */
+export interface CellChange {
+  index: number
+  by: string
+}
+
 // Client -> Server
 export type ClientMessage =
   | { type: 'join'; name: string; color: string }
   | { type: 'cursor'; index: number | null }
-  | { type: 'fill'; index: number; value: number }
+  | { type: 'fill'; index: number; value: number; version: number }
   | { type: 'chat'; text: string }
   | { type: 'reset'; difficulty: Difficulty }
 
@@ -48,7 +60,13 @@ export type ServerMessage =
       players: Player[]
       messages: ChatMessage[]
     }
-  | { type: 'values'; values: number[]; solved: boolean }
+  | {
+      type: 'values'
+      version: number
+      values: number[]
+      solved: boolean
+      change: CellChange
+    }
   | { type: 'players'; players: Player[] }
   | { type: 'chat'; message: ChatMessage }
   | { type: 'reset'; game: GameSnapshot }

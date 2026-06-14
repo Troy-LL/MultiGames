@@ -41,6 +41,7 @@ export default function App() {
     game,
     players,
     messages,
+    flashing,
     setCursor,
     fill,
     sendChat,
@@ -80,7 +81,17 @@ export default function App() {
     [game],
   )
 
-  // Keep the document title fresh with the player count.
+  // When a new board starts (e.g. someone hit "New game"), drop the stale
+  // local selection so we don't keep highlighting a cell on the old puzzle.
+  // This is the "adjust state while rendering" pattern (no effect needed).
+  const version = game?.version ?? null
+  const [prevVersion, setPrevVersion] = useState<number | null>(null)
+  if (version !== prevVersion) {
+    setPrevVersion(version)
+    setSelected(null)
+  }
+
+  // Keep the document title fresh with the room name.
   useEffect(() => {
     document.title = `Sudoku · ${room}`
   }, [room])
@@ -113,6 +124,7 @@ export default function App() {
                 selected={selected}
                 players={players}
                 selfId={selfId}
+                flashing={flashing}
                 onSelect={handleSelect}
                 onFill={handleFill}
               />

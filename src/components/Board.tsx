@@ -11,6 +11,7 @@ interface BoardProps {
   selected: number | null
   players: Player[]
   selfId: string | null
+  flashing: ReadonlySet<number>
   onSelect: (index: number) => void
   onFill: (index: number, value: number) => void
 }
@@ -22,6 +23,7 @@ export function Board({
   selected,
   players,
   selfId,
+  flashing,
   onSelect,
   onFill,
 }: BoardProps) {
@@ -112,6 +114,7 @@ export function Board({
               isConflict ? 'cell-conflict' : '',
               sameValue ? 'cell-same' : '',
               related ? 'cell-related' : '',
+              flashing.has(index) ? 'cell-flash' : '',
               c % 3 === 2 && c !== SIZE - 1 ? 'cell-border-right' : '',
               r % 3 === 2 && r !== SIZE - 1 ? 'cell-border-bottom' : '',
             ]

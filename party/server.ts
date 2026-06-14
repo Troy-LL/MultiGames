@@ -28,7 +28,14 @@ const PALETTE = [
   '#ec4899',
 ]
 
+const HEX_COLOR = /^#[0-9a-fA-F]{6}$/
+
+function sanitizeColor(color: unknown, fallback: string): string {
+  return typeof color === 'string' && HEX_COLOR.test(color) ? color : fallback
+}
+
 export default class SudokuServer implements Party.Server {
+  private version = 0
   private puzzle: Grid = []
   private solution: Grid = []
   private given: boolean[] = []
@@ -47,6 +54,7 @@ export default class SudokuServer implements Party.Server {
 
   private newGame(difficulty: Difficulty) {
     const { puzzle, solution } = generatePuzzle(difficulty)
+    this.version++
     this.puzzle = puzzle
     this.solution = solution
     this.given = puzzle.map((v) => v !== 0)
@@ -59,6 +67,7 @@ export default class SudokuServer implements Party.Server {
 
   private snapshot(): GameSnapshot {
     return {
+      version: this.version,
       puzzle: this.puzzle,
       given: this.given,
       values: this.values,
@@ -115,30 +124,41 @@ export default class SudokuServer implements Party.Server {
 
     switch (msg.type) {
       case 'join': {
-        const name = msg.name.trim().slice(0, MAX_NAME_LENGTH)
+        const name =
+          typeof msg.name === 'string'
+            ? msg.name.trim().slice(0, MAX_NAME_LENGTH)
+            : ''
         player.name = name || 'Guest'
-        if (typeof msg.color === 'string') player.color = msg.color
+        player.color = sanitizeColor(msg.color, player.color)
         this.broadcastPlayers()
         break
       }
       case 'cursor': {
         const index = msg.index
-        player.cursor =
-          index === null || (index >= 0 && index < 81) ? index : null
+        const valid =
+          index === null ||
+          (Number.isInteger(index) && index >= 0 && index < 81)
+        player.cursor = valid ? index : null
         this.broadcastPlayers()
         break
       }
       case 'fill': {
-        const { index, value } = msg
-        if (index < 0 || index >= 81) break
+        const { index, value, version } = msg
+        // Reject actions aimed at a previous board (e.g. a fill that was in
+        // flight when someone started a new game).
+        if (version !== this.version) break
+        if (!Number.isInteger(index) || index < 0 || index >= 81) break
         if (this.given[index]) break
         if (!Number.isInteger(value) || value < 0 || value > 9) break
+        if (this.values[index] === value) break
         this.values[index] = value
         this.solved = isSolved(this.values)
         this.broadcast({
           type: 'values',
+          version: this.version,
           values: this.values,
           solved: this.solved,
+          change: { index, by: sender.id },
         })
         break
       }
