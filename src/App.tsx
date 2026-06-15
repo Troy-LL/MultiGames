@@ -263,6 +263,22 @@ function GameLanding({
           className="game-choice-card wordle-choice"
           onClick={() => onChoose('wordle')}
         >
+          <span className="wordle-card-preview" aria-hidden="true">
+            <span className="wordle-preview-row">
+              <span className="wordle-preview-tile is-correct">W</span>
+              <span className="wordle-preview-tile is-present">O</span>
+              <span className="wordle-preview-tile is-absent">R</span>
+              <span className="wordle-preview-tile is-correct">D</span>
+              <span className="wordle-preview-tile is-absent">S</span>
+            </span>
+            <span className="wordle-preview-row">
+              <span className="wordle-preview-tile is-absent">R</span>
+              <span className="wordle-preview-tile is-correct">A</span>
+              <span className="wordle-preview-tile is-present">C</span>
+              <span className="wordle-preview-tile is-absent">E</span>
+              <span className="wordle-preview-tile is-correct">S</span>
+            </span>
+          </span>
           <span className="game-choice-kicker">Daily race</span>
           <span className="game-choice-title">Wordle</span>
           <span className="game-choice-copy">

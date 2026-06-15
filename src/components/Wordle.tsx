@@ -100,6 +100,11 @@ export function Wordle({
     [selfBoard],
   )
   const standings = useMemo(() => rankBoards(game.boards), [game.boards])
+  const opponentBoards = useMemo(
+    () => game.boards.filter((board) => board.playerId !== selfId),
+    [game.boards, selfId],
+  )
+  const displayBoard = selfBoard ?? game.boards[0]
 
   return (
     <section className="wordle-game" aria-label="Wordle game">
@@ -132,16 +137,35 @@ export function Wordle({
         </p>
       )}
 
-      <div className="wordle-boards">
-        {game.boards.map((board) => (
-          <PlayerWordleBoard
-            key={board.playerId}
-            board={board}
-            draft={board.playerId === selfId ? draft : ''}
-            isSelf={board.playerId === selfId}
-            maxAttempts={game.maxAttempts}
-          />
-        ))}
+      <div className="wordle-play-layout">
+        <div className="wordle-self-stage">
+          {displayBoard ? (
+            <PlayerWordleBoard
+              board={displayBoard}
+              draft={displayBoard.playerId === selfId ? draft : ''}
+              isSelf={displayBoard.playerId === selfId}
+              maxAttempts={game.maxAttempts}
+            />
+          ) : (
+            <div className="loading">Waiting for board…</div>
+          )}
+        </div>
+
+        {opponentBoards.length > 0 && (
+          <aside
+            className="wordle-opponents"
+            aria-label={game.mode === 'race' ? 'Opponent boards' : 'Team progress'}
+          >
+            <h2 className="panel-title">
+              {game.mode === 'race' ? 'Opponents' : 'Team progress'}
+            </h2>
+            <div className="wordle-opponent-list">
+              {opponentBoards.map((board) => (
+                <OpponentWordleBoard key={board.playerId} board={board} />
+              ))}
+            </div>
+          </aside>
+        )}
       </div>
 
       <WordleKeyboard
@@ -170,6 +194,49 @@ export function Wordle({
         </ol>
       </section>
     </section>
+  )
+}
+
+function OpponentWordleBoard({ board }: { board: WordleBoard }) {
+  return (
+    <article className="wordle-opponent-card">
+      <header className="wordle-opponent-header">
+        <span className="wordle-opponent-name">{board.name}</span>
+        <span className="wordle-card-score">
+          {board.solved
+            ? `${board.attempts}/${WORDLE_MAX_ATTEMPTS} · ${formatTime(board.elapsedMs)}`
+            : `${board.attempts}/${WORDLE_MAX_ATTEMPTS}`}
+        </span>
+      </header>
+
+      <div
+        className="wordle-mini-grid"
+        role="grid"
+        aria-label={`${board.name}'s masked Wordle progress`}
+      >
+        {board.rows.map((row, rowIndex) => (
+          <div className="wordle-mini-row" role="row" key={rowIndex}>
+            {row.map((tile, colIndex) => {
+              const classes = [
+                'wordle-mini-tile',
+                tile.mark ? `wordle-mini-tile-${tile.mark}` : '',
+              ]
+                .filter(Boolean)
+                .join(' ')
+
+              return (
+                <span
+                  key={`${rowIndex}-${colIndex}`}
+                  className={classes}
+                  role="gridcell"
+                  aria-label={tileLabel(rowIndex, colIndex, null, tile.mark, false)}
+                />
+              )
+            })}
+          </div>
+        ))}
+      </div>
+    </article>
   )
 }
 
