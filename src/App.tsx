@@ -165,7 +165,7 @@ export default function App() {
       <header className="app-header">
         <div>
           <h1 className="app-title">Multiplayer Games</h1>
-          <p className="app-subtitle">Sudoku rooms now include daily Wordle races.</p>
+          <p className="app-subtitle">Play Sudoku or daily Wordle together.</p>
         </div>
         <RoomBadge room={room} />
       </header>
