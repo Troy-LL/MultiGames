@@ -1,12 +1,13 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
 
 import { findConflicts } from '../shared/sudoku'
-import type { Difficulty } from '../shared/protocol'
+import type { Difficulty, GameKind, WordleMode } from '../shared/protocol'
 import { Board } from './components/Board'
 import { Chat } from './components/Chat'
 import { Controls } from './components/Controls'
 import { Join } from './components/Join'
 import { Players } from './components/Players'
+import { Wordle } from './components/Wordle'
 import { usePartyGame } from './lib/usePartyGame'
 
 interface Profile {
@@ -46,6 +47,9 @@ export default function App() {
     fill,
     sendChat,
     reset,
+    switchGame,
+    submitWordleGuess,
+    resetWordle,
   } = usePartyGame(room, profile)
 
   const handleJoin = useCallback((name: string, color: string) => {
@@ -76,24 +80,40 @@ export default function App() {
     [reset],
   )
 
+  const handleSwitchGame = useCallback(
+    (gameKind: GameKind) => {
+      setSelected(null)
+      switchGame(gameKind)
+    },
+    [switchGame],
+  )
+
+  const handleWordleReset = useCallback(
+    (mode: WordleMode) => resetWordle(mode),
+    [resetWordle],
+  )
+
   const conflicts = useMemo(
-    () => (game ? findConflicts(game.values) : new Set<number>()),
+    () =>
+      game && game.kind === 'sudoku'
+        ? findConflicts(game.values)
+        : new Set<number>(),
     [game],
   )
 
   // When a new board starts (e.g. someone hit "New game"), drop the stale
   // local selection so we don't keep highlighting a cell on the old puzzle.
   // This is the "adjust state while rendering" pattern (no effect needed).
-  const version = game?.version ?? null
-  const [prevVersion, setPrevVersion] = useState<number | null>(null)
-  if (version !== prevVersion) {
-    setPrevVersion(version)
+  const gameKey = game ? `${game.kind}:${game.version}` : null
+  const [prevGameKey, setPrevGameKey] = useState<string | null>(null)
+  if (gameKey !== prevGameKey) {
+    setPrevGameKey(gameKey)
     setSelected(null)
   }
 
   // Keep the document title fresh with the room name.
   useEffect(() => {
-    document.title = `Sudoku · ${room}`
+    document.title = `Sudoku + Wordle · ${room}`
   }, [room])
 
   if (!profile) {
@@ -103,38 +123,55 @@ export default function App() {
   return (
     <div className="app">
       <header className="app-header">
-        <h1 className="app-title">Multiplayer Sudoku</h1>
+        <div>
+          <h1 className="app-title">Multiplayer Games</h1>
+          <p className="app-subtitle">Sudoku rooms now include daily Wordle races.</p>
+        </div>
         <RoomBadge room={room} />
       </header>
 
       <main className="layout">
         <div className="play-area">
+          <GameTabs active={game?.kind ?? 'sudoku'} onSwitch={handleSwitchGame} />
           {game ? (
-            <>
-              <Controls
-                difficulty={game.difficulty}
-                status={status}
-                solved={game.solved}
-                onReset={handleReset}
-              />
-              <Board
-                values={game.values}
-                given={game.given}
-                conflicts={conflicts}
-                selected={selected}
-                players={players}
+            game.kind === 'sudoku' ? (
+              <>
+                <Controls
+                  difficulty={game.difficulty}
+                  status={status}
+                  solved={game.solved}
+                  onReset={handleReset}
+                />
+                <Board
+                  values={game.values}
+                  given={game.given}
+                  conflicts={conflicts}
+                  selected={selected}
+                  players={players}
+                  selfId={selfId}
+                  flashing={flashing}
+                  onSelect={handleSelect}
+                  onFill={handleFill}
+                />
+                <NumberPad
+                  disabled={
+                    selected === null ||
+                    (selected !== null && game.given[selected])
+                  }
+                  onInput={(n) => selected !== null && handleFill(selected, n)}
+                />
+              </>
+            ) : (
+              <Wordle
+                game={game}
                 selfId={selfId}
-                flashing={flashing}
-                onSelect={handleSelect}
-                onFill={handleFill}
+                status={status}
+                onSubmitGuess={submitWordleGuess}
+                onReset={handleWordleReset}
               />
-              <NumberPad
-                disabled={selected === null || (selected !== null && game.given[selected])}
-                onInput={(n) => selected !== null && handleFill(selected, n)}
-              />
-            </>
+            )
           ) : (
-            <div className="loading">Loading puzzle…</div>
+            <div className="loading">Loading game…</div>
           )}
         </div>
 
@@ -143,6 +180,31 @@ export default function App() {
           <Chat messages={messages} selfId={selfId} onSend={sendChat} />
         </aside>
       </main>
+    </div>
+  )
+}
+
+function GameTabs({
+  active,
+  onSwitch,
+}: {
+  active: GameKind
+  onSwitch: (game: GameKind) => void
+}) {
+  return (
+    <div className="game-tabs" role="tablist" aria-label="Game">
+      {(['sudoku', 'wordle'] as const).map((game) => (
+        <button
+          key={game}
+          type="button"
+          role="tab"
+          aria-selected={active === game}
+          className={`game-tab ${active === game ? 'is-active' : ''}`}
+          onClick={() => onSwitch(game)}
+        >
+          {game === 'sudoku' ? 'Sudoku' : 'Wordle'}
+        </button>
+      ))}
     </div>
   )
 }
