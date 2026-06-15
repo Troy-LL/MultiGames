@@ -1,10 +1,12 @@
-# Multiplayer Sudoku 🧩
+# Multiplayer Sudoku + Wordle 🧩
 
-A minimalist, accessible multiplayer Sudoku built with **React + TypeScript + Vite** on the
-front end and **[PartyKit](https://partykit.io)** for real-time multiplayer.
+A minimalist, accessible multiplayer Sudoku and daily Wordle room built with
+**React + TypeScript + Vite** on the front end and **[PartyKit](https://partykit.io)**
+for real-time multiplayer.
 
-Players in the same room share one board, see **where everyone is selecting** in real time,
-and chat in a side panel (desktop) / bottom panel (mobile).
+Players choose Sudoku or Wordle from a landing page after joining a room. They can
+share one Sudoku board, race or team up on daily Wordle, see each other's masked
+Wordle boards, and chat in a side panel (desktop) / bottom panel (mobile).
 
 ## Features
 
@@ -16,6 +18,11 @@ and chat in a side panel (desktop) / bottom panel (mobile).
   never depends on color alone.
 - **Unique-solution puzzles** — generated server-side with a uniqueness check; three difficulties.
 - **Conflict highlighting** — duplicate numbers in a row/column/box are flagged (color + underline).
+- **Game landing page** — choose Sudoku or Wordle before entering the active room view.
+- **Daily Wordle** — original public Wordle answer schedule, Wordle-style colors/keyboard,
+  race/team modes, and standings by guesses then time.
+- **Private letters** — each player sees their own Wordle letters; everyone else only sees
+  colored result tiles and progress.
 
 ## Getting started
 
@@ -48,20 +55,23 @@ the `?room=<name>` query param (defaults to `lobby`).
 ```
 shared/         Code shared between client and server
   sudoku.ts     Puzzle generation, solving, conflict detection
+  wordle.ts     Daily answer schedule + Wordle scoring
   protocol.ts   WebSocket message types (ClientMessage / ServerMessage)
 party/
-  server.ts     PartyKit room server: holds board + players + chat, broadcasts updates
+  server.ts     PartyKit room server: holds game state + players + chat, broadcasts updates
 src/
   App.tsx       Layout + glue
-  components/    Board, Chat, Players, Controls, Join
+  components/    Board, Wordle, Chat, Players, Controls, Join
   lib/
     usePartyGame.ts  React hook wrapping the PartySocket connection + state
     colors.ts        Palette + helpers (initials, readable text color)
 ```
 
 The PartyKit server keeps authoritative game state **in memory per room**. Clients send intents
-(`join`, `cursor`, `fill`, `chat`, `reset`) and the server validates them and broadcasts the
-results (`snapshot`, `values`, `players`, `chat`, `reset`).
+(`join`, `cursor`, `fill`, `chat`, `reset`, `switchGame`, `wordleGuess`, `wordleReset`)
+and the server validates them and broadcasts the results (`snapshot`, `values`, `game`,
+`players`, `chat`, `reset`). Wordle snapshots are personalized per connection so opponent
+letters are never sent to other clients.
 
 ## Configuration
 

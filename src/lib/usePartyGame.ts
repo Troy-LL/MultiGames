@@ -5,8 +5,10 @@ import {
   type ChatMessage,
   type Difficulty,
   type GameSnapshot,
+  type GameKind,
   type Player,
   type ServerMessage,
+  type WordleMode,
 } from '../../shared/protocol'
 
 const PARTYKIT_HOST =
@@ -26,6 +28,9 @@ export interface PartyGame {
   fill: (index: number, value: number) => void
   sendChat: (text: string) => void
   reset: (difficulty: Difficulty) => void
+  switchGame: (game: GameKind) => void
+  submitWordleGuess: (guess: string) => void
+  resetWordle: (mode: WordleMode) => void
   join: (name: string, color: string) => void
 }
 
@@ -113,7 +118,7 @@ export function usePartyGame(
         case 'values': {
           versionRef.current = msg.version
           setGame((g) =>
-            g && g.version === msg.version
+            g && g.kind === 'sudoku' && g.version === msg.version
               ? { ...g, values: msg.values, solved: msg.solved }
               : g,
           )
@@ -129,6 +134,11 @@ export function usePartyGame(
           break
         case 'chat':
           setMessages((m) => [...m, msg.message])
+          break
+        case 'game':
+          versionRef.current = msg.game.version
+          setGame(msg.game)
+          clearFlashes()
           break
         case 'reset':
           versionRef.current = msg.game.version
@@ -162,7 +172,14 @@ export function usePartyGame(
       // echo (authoritative) will reconcile, including last-write-wins when
       // two players edit the same tile.
       setGame((g) => {
-        if (!g || g.given[index] || g.values[index] === value) return g
+        if (
+          !g ||
+          g.kind !== 'sudoku' ||
+          g.given[index] ||
+          g.values[index] === value
+        ) {
+          return g
+        }
         const values = g.values.slice()
         values[index] = value
         return { ...g, values }
@@ -175,6 +192,19 @@ export function usePartyGame(
   const sendChat = useCallback((text: string) => send({ type: 'chat', text }), [send])
   const reset = useCallback(
     (difficulty: Difficulty) => send({ type: 'reset', difficulty }),
+    [send],
+  )
+  const switchGame = useCallback(
+    (game: GameKind) => send({ type: 'switchGame', game }),
+    [send],
+  )
+  const submitWordleGuess = useCallback(
+    (guess: string) =>
+      send({ type: 'wordleGuess', guess, version: versionRef.current }),
+    [send],
+  )
+  const resetWordle = useCallback(
+    (mode: WordleMode) => send({ type: 'wordleReset', mode }),
     [send],
   )
   const join = useCallback(
@@ -194,6 +224,9 @@ export function usePartyGame(
       fill,
       sendChat,
       reset,
+      switchGame,
+      submitWordleGuess,
+      resetWordle,
       join,
     }),
     [
@@ -207,6 +240,9 @@ export function usePartyGame(
       fill,
       sendChat,
       reset,
+      switchGame,
+      submitWordleGuess,
+      resetWordle,
       join,
     ],
   )
