@@ -1,210 +1,205 @@
-import './index.css';
-import { useEffect } from 'react';
-import { SubjectGraph } from './components/SubjectGraph/SubjectGraph';
-import { useAppStore } from './state/store';
-import { AnalyticsPanel } from './components/AnalyticsPanel';
-import { ProfileSelector } from './components/ProfileSelector';
-import { SubjectDetail } from './components/SubjectDetail';
+import { useCallback, useEffect, useMemo, useState } from 'react'
 
-function App() {
-  const currentSemesterIndex = useAppStore((s) => s.currentSemesterIndex);
-  const setCurrentSemester = useAppStore((s) => s.setCurrentSemester);
-  const graph = useAppStore((s) => s.graph);
-  const isPlaying = useAppStore((s) => s.isPlaying);
-  const play = useAppStore((s) => s.play);
-  const pause = useAppStore((s) => s.pause);
-  const maxSemesterIndex = useAppStore((s) => s.maxSemesterIndex);
-  const setMaxSemesterIndex = useAppStore((s) => s.setMaxSemesterIndex);
+import { findConflicts } from '../shared/sudoku'
+import type { Difficulty } from '../shared/protocol'
+import { Board } from './components/Board'
+import { Chat } from './components/Chat'
+import { Controls } from './components/Controls'
+import { Join } from './components/Join'
+import { Players } from './components/Players'
+import { usePartyGame } from './lib/usePartyGame'
 
-  useEffect(() => {
-    if (!isPlaying || !graph) {
-      return;
-    }
-
-    const interval = window.setInterval(() => {
-      const upper =
-        maxSemesterIndex ?? graph.semesters.length - 1;
-      const next =
-        currentSemesterIndex >= upper ? 0 : currentSemesterIndex + 1;
-      setCurrentSemester(next);
-    }, 2500);
-
-    return () => window.clearInterval(interval);
-  }, [isPlaying, graph, currentSemesterIndex, maxSemesterIndex, setCurrentSemester]);
-
-  return (
-    <div className="min-h-screen bg-black text-neutral-100 flex flex-col">
-      <header className="border-b border-neutral-900 px-6 py-3 flex items-center justify-between bg-black/95">
-        <div className="flex flex-col">
-            <span className="text-xs uppercase tracking-[0.2em] text-neutral-500">
-            Student Memory Map
-          </span>
-          <span className="text-sm text-neutral-300">
-            Curriculum as a living fireworks brain
-          </span>
-        </div>
-        <div className="flex items-center gap-4 text-xs text-neutral-400">
-          <ProfileSelector />
-          <span className="hidden sm:inline-flex items-center gap-2">
-            <span>Y1–Y4 timeline</span>
-            <span className="w-px h-4 bg-neutral-800" />
-            <span>Graph · Fireworks · Analytics</span>
-          </span>
-        </div>
-      </header>
-
-      <main className="flex-1 grid grid-rows-[minmax(0,1fr)_auto] bg-gradient-to-b from-black via-neutral-950 to-black">
-        <div className="grid grid-cols-1 lg:grid-cols-[minmax(0,2fr)_minmax(0,1.5fr)] gap-4 p-4 lg:p-6">
-          <section
-            aria-label="Subject graph"
-            className="bg-black/80 border border-neutral-900 rounded-2xl shadow-[0_0_60px_rgba(0,0,0,0.9)] flex flex-col"
-          >
-            <div className="px-4 pt-3 pb-2 flex items-center justify-between border-b border-neutral-800/80">
-              <h2 className="text-xs font-semibold tracking-wide text-neutral-300 uppercase">
-                Subject Tree
-              </h2>
-              <span className="text-[11px] text-neutral-500">
-                Static graph (Phase 1 placeholder)
-              </span>
-            </div>
-            <SubjectGraph />
-          </section>
-
-          <section
-            aria-label="Analytics"
-            className="bg-black/80 border border-neutral-900 rounded-2xl shadow-[0_0_60px_rgba(0,0,0,0.9)] flex flex-col"
-          >
-            <div className="px-4 pt-3 pb-2 flex items-center justify-between border-b border-neutral-800/80">
-              <h2 className="text-xs font-semibold tracking-wide text-neutral-300 uppercase">
-                Retention Analytics
-              </h2>
-              <span className="text-[11px] text-neutral-500">
-                Area chart & heatmap
-              </span>
-            </div>
-            <AnalyticsPanel />
-          </section>
-        </div>
-
-        <section
-          aria-label="Timeline & details"
-          className="border-t border-neutral-900 bg-black/95 backdrop-blur px-4 py-3 lg:px-6 flex flex-col gap-3"
-        >
-          <div className="flex items-center justify-between gap-3">
-            <div className="flex items-center gap-3 text-xs text-neutral-300">
-              <span className="font-semibold">Semester</span>
-              <div className="flex gap-1">
-                {Array.from({ length: 8 }).map((_, i) => {
-                  const disabled = !!graph && i > maxSemesterIndex;
-                  return (
-                    <button
-                      key={i}
-                      type="button"
-                      disabled={disabled}
-                      onClick={() => !disabled && setCurrentSemester(i)}
-                      className={`w-6 h-6 rounded-full border text-[11px] transition-colors ${
-                        disabled
-                          ? 'border-neutral-800 text-neutral-700 cursor-not-allowed'
-                          : currentSemesterIndex === i
-                          ? 'border-neutral-100 text-neutral-100 bg-neutral-50/5'
-                          : 'border-neutral-700 text-neutral-500 hover:border-neutral-200 hover:text-neutral-100'
-                      }`}
-                    >
-                      {i + 1}
-                    </button>
-                  );
-                })}
-              </div>
-            </div>
-            <div className="flex items-center gap-4 text-xs text-neutral-400">
-              <button
-                type="button"
-                onClick={play}
-                className={`px-2 py-1 rounded-full border transition-colors ${
-                  isPlaying
-                    ? 'border-neutral-100 text-neutral-100 bg-neutral-50/5'
-                    : 'border-neutral-700 text-neutral-500 hover:border-neutral-200 hover:text-neutral-100'
-                }`}
-              >
-                Play
-              </button>
-              <button
-                type="button"
-                onClick={pause}
-                className={`px-2 py-1 rounded-full border transition-colors ${
-                  !isPlaying
-                    ? 'border-neutral-100 text-neutral-100 bg-neutral-50/5'
-                    : 'border-neutral-700 text-neutral-500 hover:border-neutral-200 hover:text-neutral-100'
-                }`}
-              >
-                Pause
-              </button>
-              <div className="flex items-center gap-2">
-                <span className="uppercase tracking-wide text-[10px] text-sky-400 font-semibold">
-                  Choose your phase
-                </span>
-                <select
-                  id="student-phase"
-                  name="student-phase"
-                  className="bg-black border border-sky-500 rounded-full px-3 py-1 text-[11px] text-neutral-100 shadow-[0_0_12px_rgba(56,189,248,0.4)]"
-                  value={maxSemesterIndex}
-                  onChange={(e) => setMaxSemesterIndex(Number(e.target.value))}
-                >
-                  <option value={1}>Up to Year 1</option>
-                  <option value={3}>Up to Year 2</option>
-                  <option value={5}>Up to Year 3</option>
-                  <option value={7}>Up to Year 4</option>
-                </select>
-              </div>
-              <div className="hidden sm:flex items-center gap-1 text-[11px] text-neutral-500">
-                <span className="uppercase tracking-wide">Time</span>
-                <span className="w-px h-3 bg-neutral-800" />
-                <span>
-                  {graph
-                    ? graph.semesters[currentSemesterIndex]?.label
-                    : `S${currentSemesterIndex + 1}`}
-                </span>
-              </div>
-            </div>
-          </div>
-          <div className="flex flex-col lg:flex-row gap-4">
-            <div className="flex-1">
-              <SubjectDetail />
-            </div>
-            <div className="w-full lg:w-[320px] text-[10px] text-neutral-300 bg-black/80 border border-neutral-800 rounded-md px-3 py-2">
-              <div className="font-semibold text-[10px] text-neutral-200 mb-1">
-                Visual legend
-              </div>
-              <div className="flex flex-wrap gap-2 mb-1.5">
-                <span className="flex items-center gap-1">
-                  <span className="inline-block w-2 h-2 rounded-full bg-amber-400" />
-                  <span>CS</span>
-                </span>
-                <span className="flex items-center gap-1">
-                  <span className="inline-block w-2 h-2 rounded-full bg-emerald-400" />
-                  <span>Math</span>
-                </span>
-                <span className="flex items-center gap-1">
-                  <span className="inline-block w-2 h-2 rounded-full bg-sky-400" />
-                  <span>GE / Core</span>
-                </span>
-                <span className="flex items-center gap-1">
-                  <span className="inline-block w-2 h-2 rounded-full bg-violet-400" />
-                  <span>Other</span>
-                </span>
-              </div>
-              <ul className="space-y-0.5">
-                <li>• Line = prereq / overlap between subjects</li>
-                <li>• Bigger bubble = more connections</li>
-                <li>• Bright bubble = active this semester</li>
-                <li>• Heatmap color = retention (cool → hot)</li>
-              </ul>
-            </div>
-          </div>
-        </section>
-      </main>
-    </div>
-  );
+interface Profile {
+  name: string
+  color: string
 }
 
-export default App;
+const PROFILE_KEY = 'sudoku.profile'
+
+function loadProfile(): Profile | null {
+  try {
+    const raw = localStorage.getItem(PROFILE_KEY)
+    return raw ? (JSON.parse(raw) as Profile) : null
+  } catch {
+    return null
+  }
+}
+
+function getRoom(): string {
+  const params = new URLSearchParams(window.location.search)
+  return params.get('room')?.trim() || 'lobby'
+}
+
+export default function App() {
+  const [profile, setProfile] = useState<Profile | null>(loadProfile)
+  const [selected, setSelected] = useState<number | null>(null)
+  const [room] = useState(getRoom)
+
+  const {
+    status,
+    selfId,
+    game,
+    players,
+    messages,
+    flashing,
+    setCursor,
+    fill,
+    sendChat,
+    reset,
+  } = usePartyGame(room, profile)
+
+  const handleJoin = useCallback((name: string, color: string) => {
+    const next = { name, color }
+    setProfile(next)
+    try {
+      localStorage.setItem(PROFILE_KEY, JSON.stringify(next))
+    } catch {
+      // Ignore storage errors (e.g. private mode).
+    }
+  }, [])
+
+  const handleSelect = useCallback(
+    (index: number) => {
+      setSelected(index)
+      setCursor(index)
+    },
+    [setCursor],
+  )
+
+  const handleFill = useCallback(
+    (index: number, value: number) => fill(index, value),
+    [fill],
+  )
+
+  const handleReset = useCallback(
+    (difficulty: Difficulty) => reset(difficulty),
+    [reset],
+  )
+
+  const conflicts = useMemo(
+    () => (game ? findConflicts(game.values) : new Set<number>()),
+    [game],
+  )
+
+  // When a new board starts (e.g. someone hit "New game"), drop the stale
+  // local selection so we don't keep highlighting a cell on the old puzzle.
+  // This is the "adjust state while rendering" pattern (no effect needed).
+  const version = game?.version ?? null
+  const [prevVersion, setPrevVersion] = useState<number | null>(null)
+  if (version !== prevVersion) {
+    setPrevVersion(version)
+    setSelected(null)
+  }
+
+  // Keep the document title fresh with the room name.
+  useEffect(() => {
+    document.title = `Sudoku · ${room}`
+  }, [room])
+
+  if (!profile) {
+    return <Join onJoin={handleJoin} />
+  }
+
+  return (
+    <div className="app">
+      <header className="app-header">
+        <h1 className="app-title">Multiplayer Sudoku</h1>
+        <RoomBadge room={room} />
+      </header>
+
+      <main className="layout">
+        <div className="play-area">
+          {game ? (
+            <>
+              <Controls
+                difficulty={game.difficulty}
+                status={status}
+                solved={game.solved}
+                onReset={handleReset}
+              />
+              <Board
+                values={game.values}
+                given={game.given}
+                conflicts={conflicts}
+                selected={selected}
+                players={players}
+                selfId={selfId}
+                flashing={flashing}
+                onSelect={handleSelect}
+                onFill={handleFill}
+              />
+              <NumberPad
+                disabled={selected === null || (selected !== null && game.given[selected])}
+                onInput={(n) => selected !== null && handleFill(selected, n)}
+              />
+            </>
+          ) : (
+            <div className="loading">Loading puzzle…</div>
+          )}
+        </div>
+
+        <aside className="sidebar">
+          <Players players={players} selfId={selfId} />
+          <Chat messages={messages} selfId={selfId} onSend={sendChat} />
+        </aside>
+      </main>
+    </div>
+  )
+}
+
+function NumberPad({
+  disabled,
+  onInput,
+}: {
+  disabled: boolean
+  onInput: (n: number) => void
+}) {
+  return (
+    <div className="numpad" role="group" aria-label="Number input">
+      {[1, 2, 3, 4, 5, 6, 7, 8, 9].map((n) => (
+        <button
+          key={n}
+          type="button"
+          className="btn numpad-btn"
+          disabled={disabled}
+          onClick={() => onInput(n)}
+        >
+          {n}
+        </button>
+      ))}
+      <button
+        type="button"
+        className="btn numpad-btn numpad-erase"
+        disabled={disabled}
+        onClick={() => onInput(0)}
+        aria-label="Erase"
+      >
+        ⌫
+      </button>
+    </div>
+  )
+}
+
+function RoomBadge({ room }: { room: string }) {
+  const [copied, setCopied] = useState(false)
+
+  function copy() {
+    const url = new URL(window.location.href)
+    url.searchParams.set('room', room)
+    navigator.clipboard?.writeText(url.toString()).then(
+      () => {
+        setCopied(true)
+        setTimeout(() => setCopied(false), 1500)
+      },
+      () => undefined,
+    )
+  }
+
+  return (
+    <button type="button" className="room-badge" onClick={copy} title="Copy invite link">
+      <span className="room-label">room</span>
+      <span className="room-name">{room}</span>
+      <span className="room-copy">{copied ? 'copied!' : 'invite'}</span>
+    </button>
+  )
+}
