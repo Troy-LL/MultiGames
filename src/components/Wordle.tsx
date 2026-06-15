@@ -5,14 +5,12 @@ import {
   WORDLE_WORD_LENGTH,
 } from '../../shared/wordle'
 import type {
-  ConnectionStatus,
-} from '../lib/usePartyGame'
-import type {
   WordleBoard,
   WordleMark,
   WordleMode,
   WordleSnapshot,
 } from '../../shared/protocol'
+import type { ConnectionStatus } from '../lib/usePartyGame'
 
 interface WordleProps {
   game: WordleSnapshot

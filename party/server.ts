@@ -47,7 +47,6 @@ const WORDLE_CELLS = WORDLE_MAX_ATTEMPTS * WORDLE_WORD_LENGTH
 interface WordleGuess {
   word: string
   marks: ReturnType<typeof evaluateWordleGuess>
-  submittedAt: number
 }
 
 interface WordlePlayerState {
@@ -65,7 +64,6 @@ export default class MultiplayerGameServer implements Party.Server {
 
   private sudokuVersion = 0
   private sudokuPuzzle: Grid = []
-  private sudokuSolution: Grid = []
   private sudokuGiven: boolean[] = []
   private sudokuValues: Grid = []
   private sudokuDifficulty: Difficulty = 'easy'
@@ -89,10 +87,9 @@ export default class MultiplayerGameServer implements Party.Server {
   }
 
   private newSudokuGame(difficulty: Difficulty) {
-    const { puzzle, solution } = generatePuzzle(difficulty)
+    const { puzzle } = generatePuzzle(difficulty)
     this.sudokuVersion++
     this.sudokuPuzzle = puzzle
-    this.sudokuSolution = solution
     this.sudokuGiven = puzzle.map((v) => v !== 0)
     this.sudokuValues = puzzle.slice()
     this.sudokuDifficulty = difficulty
@@ -350,9 +347,8 @@ export default class MultiplayerGameServer implements Party.Server {
 
         const word = normalizeWordleGuess(msg.guess)
         const marks = evaluateWordleGuess(this.wordleAnswer, word)
-        const submittedAt = Date.now()
-        state.guesses.push({ word, marks, submittedAt })
-        if (word === this.wordleAnswer) state.solvedAt = submittedAt
+        state.guesses.push({ word, marks })
+        if (word === this.wordleAnswer) state.solvedAt = Date.now()
         this.broadcastActiveGame()
         break
       }
