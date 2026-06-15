@@ -34,6 +34,7 @@ function getRoom(): string {
 export default function App() {
   const [profile, setProfile] = useState<Profile | null>(loadProfile)
   const [selected, setSelected] = useState<number | null>(null)
+  const [selectedGame, setSelectedGame] = useState<GameKind | null>(null)
   const [room] = useState(getRoom)
 
   const {
@@ -82,10 +83,20 @@ export default function App() {
 
   const handleSwitchGame = useCallback(
     (gameKind: GameKind) => {
+      setSelectedGame(gameKind)
       setSelected(null)
       switchGame(gameKind)
     },
     [switchGame],
+  )
+
+  const handleChooseGame = useCallback(
+    (gameKind: GameKind) => {
+      setSelectedGame(gameKind)
+      setSelected(null)
+      if (status === 'online') switchGame(gameKind)
+    },
+    [status, switchGame],
   )
 
   const handleWordleReset = useCallback(
@@ -116,8 +127,37 @@ export default function App() {
     document.title = `Sudoku + Wordle · ${room}`
   }, [room])
 
+  useEffect(() => {
+    if (
+      profile &&
+      selectedGame &&
+      status === 'online' &&
+      game?.kind !== selectedGame
+    ) {
+      switchGame(selectedGame)
+    }
+  }, [game?.kind, profile, selectedGame, status, switchGame])
+
   if (!profile) {
     return <Join onJoin={handleJoin} />
+  }
+
+  if (!selectedGame) {
+    return (
+      <div className="app game-landing-app">
+        <header className="app-header">
+          <div>
+            <h1 className="app-title">Choose your game</h1>
+            <p className="app-subtitle">Start with Sudoku or race today&apos;s Wordle.</p>
+          </div>
+          <RoomBadge room={room} />
+        </header>
+
+        <main className="game-landing" aria-label="Choose a game">
+          <GameLanding status={status} onChoose={handleChooseGame} />
+        </main>
+      </div>
+    )
   }
 
   return (
@@ -182,6 +222,55 @@ export default function App() {
         </aside>
       </main>
     </div>
+  )
+}
+
+function GameLanding({
+  status,
+  onChoose,
+}: {
+  status: string
+  onChoose: (game: GameKind) => void
+}) {
+  return (
+    <section className="game-landing-card">
+      <div className="controls-status game-landing-status" aria-live="polite">
+        <span className={`dot dot-${status}`} aria-hidden="true" />
+        <span className="status-text">
+          {status === 'online'
+            ? 'Connected'
+            : status === 'connecting'
+              ? 'Connecting…'
+              : 'Offline'}
+        </span>
+      </div>
+
+      <div className="game-choice-grid">
+        <button
+          type="button"
+          className="game-choice-card sudoku-choice"
+          onClick={() => onChoose('sudoku')}
+        >
+          <span className="game-choice-kicker">Classic co-op</span>
+          <span className="game-choice-title">Sudoku</span>
+          <span className="game-choice-copy">
+            Share one puzzle, fill cells together, and spot conflicts live.
+          </span>
+        </button>
+
+        <button
+          type="button"
+          className="game-choice-card wordle-choice"
+          onClick={() => onChoose('wordle')}
+        >
+          <span className="game-choice-kicker">Daily race</span>
+          <span className="game-choice-title">Wordle</span>
+          <span className="game-choice-copy">
+            Solve today&apos;s word fastest, or team up with hidden letters.
+          </span>
+        </button>
+      </div>
+    </section>
   )
 }
 

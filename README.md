@@ -4,9 +4,9 @@ A minimalist, accessible multiplayer Sudoku and daily Wordle room built with
 **React + TypeScript + Vite** on the front end and **[PartyKit](https://partykit.io)**
 for real-time multiplayer.
 
-Players in the same room can share one Sudoku board, race or team up on daily Wordle,
-see each other's masked Wordle boards, and chat in a side panel (desktop) / bottom
-panel (mobile).
+Players choose Sudoku or Wordle from a landing page after joining a room. They can
+share one Sudoku board, race or team up on daily Wordle, see each other's masked
+Wordle boards, and chat in a side panel (desktop) / bottom panel (mobile).
 
 ## Features
 
@@ -18,6 +18,7 @@ panel (mobile).
   never depends on color alone.
 - **Unique-solution puzzles** — generated server-side with a uniqueness check; three difficulties.
 - **Conflict highlighting** — duplicate numbers in a row/column/box are flagged (color + underline).
+- **Game landing page** — choose Sudoku or Wordle before entering the active room view.
 - **Daily Wordle** — original public Wordle answer schedule, Wordle-style colors/keyboard,
   race/team modes, and standings by guesses then time.
 - **Private letters** — each player sees their own Wordle letters; everyone else only sees
