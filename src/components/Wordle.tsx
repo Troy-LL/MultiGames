@@ -71,11 +71,6 @@ export function Wordle({
   }, [canPlay, draft, onSubmitGuess])
 
   useEffect(() => {
-    setDraft('')
-    setError(null)
-  }, [game.version, selfBoard?.attempts])
-
-  useEffect(() => {
     function onKeyDown(event: KeyboardEvent) {
       const target = event.target as HTMLElement | null
       if (
