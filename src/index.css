@@ -524,7 +524,7 @@ button {
 
 /* ---------- Wordle ---------- */
 .wordle-game {
-  width: min(94vw, 760px);
+  width: min(94vw, 740px);
   display: flex;
   flex-direction: column;
   align-items: stretch;
@@ -570,12 +570,13 @@ button {
 }
 .wordle-play-layout {
   display: grid;
-  grid-template-columns: minmax(0, 390px) minmax(160px, 220px);
+  grid-template-columns: minmax(0, 160px) minmax(0, 390px) minmax(0, 160px);
   justify-content: center;
   align-items: start;
-  gap: 1rem;
+  gap: 0.75rem;
 }
 .wordle-main-column {
+  grid-column: 2;
   display: flex;
   flex-direction: column;
   align-items: center;
@@ -586,6 +587,7 @@ button {
   justify-content: center;
 }
 .wordle-opponents {
+  grid-column: 3;
   background: var(--surface);
   border: 1px solid var(--border);
   border-radius: var(--radius);
@@ -603,6 +605,10 @@ button {
   border-radius: var(--radius);
   box-shadow: var(--shadow);
   padding: 0.85rem;
+}
+.wordle-standings {
+  width: min(100%, 520px);
+  align-self: center;
 }
 .wordle-card {
   width: min(100%, 390px);
@@ -763,6 +769,10 @@ button {
   }
   .wordle-play-layout {
     grid-template-columns: minmax(0, 1fr);
+  }
+  .wordle-main-column,
+  .wordle-opponents {
+    grid-column: 1;
   }
   .wordle-opponents {
     width: min(100%, 390px);
