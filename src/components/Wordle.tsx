@@ -138,17 +138,27 @@ export function Wordle({
       )}
 
       <div className="wordle-play-layout">
-        <div className="wordle-self-stage">
-          {displayBoard ? (
-            <PlayerWordleBoard
-              board={displayBoard}
-              draft={displayBoard.playerId === selfId ? draft : ''}
-              isSelf={displayBoard.playerId === selfId}
-              maxAttempts={game.maxAttempts}
-            />
-          ) : (
-            <div className="loading">Waiting for board…</div>
-          )}
+        <div className="wordle-main-column">
+          <div className="wordle-self-stage">
+            {displayBoard ? (
+              <PlayerWordleBoard
+                board={displayBoard}
+                draft={displayBoard.playerId === selfId ? draft : ''}
+                isSelf={displayBoard.playerId === selfId}
+                maxAttempts={game.maxAttempts}
+              />
+            ) : (
+              <div className="loading">Waiting for board…</div>
+            )}
+          </div>
+
+          <WordleKeyboard
+            disabled={!canPlay}
+            marks={keyboardMarks}
+            onLetter={addLetter}
+            onErase={erase}
+            onSubmit={submit}
+          />
         </div>
 
         {opponentBoards.length > 0 && (
@@ -167,14 +177,6 @@ export function Wordle({
           </aside>
         )}
       </div>
-
-      <WordleKeyboard
-        disabled={!canPlay}
-        marks={keyboardMarks}
-        onLetter={addLetter}
-        onErase={erase}
-        onSubmit={submit}
-      />
 
       <section className="wordle-standings" aria-label="Wordle standings">
         <h2 className="panel-title">Standings</h2>

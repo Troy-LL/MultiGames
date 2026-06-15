@@ -575,6 +575,12 @@ button {
   align-items: start;
   gap: 1rem;
 }
+.wordle-main-column {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.9rem;
+}
 .wordle-self-stage {
   display: flex;
   justify-content: center;
@@ -662,7 +668,6 @@ button {
 }
 .wordle-keyboard {
   width: min(100%, 520px);
-  align-self: center;
   display: grid;
   gap: 0.45rem;
 }
