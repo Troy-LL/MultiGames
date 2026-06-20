@@ -3,6 +3,7 @@ import usePartySocket from 'partysocket/react'
 
 import {
   type ChatMessage,
+  type CardRank,
   type Difficulty,
   type GameSnapshot,
   type GameKind,
@@ -31,6 +32,12 @@ export interface PartyGame {
   switchGame: (game: GameKind) => void
   submitWordleGuess: (guess: string) => void
   resetWordle: (mode: WordleMode) => void
+  startCards: () => void
+  drawCard: () => void
+  guessCard: (rank: CardRank) => void
+  nextCardsRound: () => void
+  skipCardsRound: () => void
+  resetCards: () => void
   join: (name: string, color: string) => void
 }
 
@@ -207,6 +214,25 @@ export function usePartyGame(
     (mode: WordleMode) => send({ type: 'wordleReset', mode }),
     [send],
   )
+  const startCards = useCallback(() => send({ type: 'cardsStart' }), [send])
+  const drawCard = useCallback(
+    () => send({ type: 'cardsDraw', version: versionRef.current }),
+    [send],
+  )
+  const guessCard = useCallback(
+    (rank: CardRank) =>
+      send({ type: 'cardsGuess', rank, version: versionRef.current }),
+    [send],
+  )
+  const nextCardsRound = useCallback(
+    () => send({ type: 'cardsNextRound', version: versionRef.current }),
+    [send],
+  )
+  const skipCardsRound = useCallback(
+    () => send({ type: 'cardsSkip', version: versionRef.current }),
+    [send],
+  )
+  const resetCards = useCallback(() => send({ type: 'cardsReset' }), [send])
   const join = useCallback(
     (name: string, color: string) => send({ type: 'join', name, color }),
     [send],
@@ -227,6 +253,12 @@ export function usePartyGame(
       switchGame,
       submitWordleGuess,
       resetWordle,
+      startCards,
+      drawCard,
+      guessCard,
+      nextCardsRound,
+      skipCardsRound,
+      resetCards,
       join,
     }),
     [
@@ -243,6 +275,12 @@ export function usePartyGame(
       switchGame,
       submitWordleGuess,
       resetWordle,
+      startCards,
+      drawCard,
+      guessCard,
+      nextCardsRound,
+      skipCardsRound,
+      resetCards,
       join,
     ],
   )

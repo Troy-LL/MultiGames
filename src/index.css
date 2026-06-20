@@ -305,6 +305,42 @@ button {
 .wordle-preview-tile.is-absent {
   background: var(--wordle-absent);
 }
+.cards-choice::before {
+  background: linear-gradient(135deg, #be123c, #1d4ed8);
+}
+.cards-card-preview {
+  position: absolute;
+  top: clamp(1rem, 4vw, 1.6rem);
+  left: clamp(1rem, 4vw, 1.6rem);
+  z-index: 1;
+  display: flex;
+  gap: 0.45rem;
+}
+.cards-preview-card {
+  width: 2.6rem;
+  height: 3.6rem;
+  border-radius: 8px;
+  border: 2px solid var(--border-strong);
+  background: var(--surface);
+  display: grid;
+  place-items: center;
+  font-weight: 900;
+  font-size: 0.95rem;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.12);
+  transform: rotate(-8deg);
+}
+.cards-preview-card:nth-child(2) {
+  transform: rotate(4deg) translateY(0.35rem);
+}
+.cards-preview-card:nth-child(3) {
+  transform: rotate(12deg) translateY(-0.15rem);
+}
+.cards-preview-card.is-red {
+  color: #dc2626;
+}
+.cards-preview-card.is-black {
+  color: var(--text);
+}
 
 @media (max-width: 680px) {
   .game-choice-grid {
@@ -1012,4 +1048,220 @@ button {
 .loading {
   color: var(--text-muted);
   padding: 3rem 0;
+}
+
+/* ---------- She's a 2 card game ---------- */
+.cards-game {
+  width: min(100%, 920px);
+  display: grid;
+  gap: 1rem;
+}
+.cards-controls {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+}
+.cards-status {
+  display: flex;
+  flex-direction: column;
+  gap: 0.15rem;
+}
+.cards-phase {
+  font-weight: 800;
+  font-size: 1.05rem;
+}
+.cards-deck-count {
+  color: var(--text-muted);
+  font-size: 0.85rem;
+}
+.cards-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.45rem;
+}
+.cards-hints {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 0.9rem 1rem;
+  box-shadow: var(--shadow);
+}
+.cards-hints-intro {
+  margin: 0 0 0.6rem;
+  color: var(--text-muted);
+  font-size: 0.9rem;
+}
+.cards-hints-list {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  display: grid;
+  gap: 0.45rem;
+}
+.cards-hints-list li {
+  display: grid;
+  grid-template-columns: 2.2rem 1fr;
+  gap: 0.6rem;
+  align-items: start;
+  font-size: 0.9rem;
+}
+.cards-hint-rank {
+  font-weight: 900;
+}
+.cards-play-layout {
+  display: grid;
+  grid-template-columns: minmax(0, 1.2fr) minmax(240px, 0.8fr);
+  gap: 1rem;
+  align-items: start;
+}
+.cards-stage,
+.cards-standings {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 1rem;
+  box-shadow: var(--shadow);
+}
+.cards-standings h2 {
+  margin: 0 0 0.75rem;
+  font-size: 1rem;
+}
+.cards-waiting,
+.cards-finished,
+.cards-current {
+  display: grid;
+  gap: 0.75rem;
+  justify-items: center;
+  text-align: center;
+  min-height: 10rem;
+}
+.cards-playing-card {
+  width: min(42vw, 9rem);
+  aspect-ratio: 2.5 / 3.5;
+  border-radius: 14px;
+  border: 3px solid var(--border-strong);
+  background: linear-gradient(160deg, #ffffff, #f3f4f6);
+  display: grid;
+  place-items: center;
+  gap: 0.2rem;
+  box-shadow: var(--shadow);
+}
+.cards-playing-card.is-red {
+  color: #dc2626;
+}
+.cards-playing-card.is-black {
+  color: #111827;
+}
+.cards-playing-rank {
+  font-size: clamp(2rem, 8vw, 3rem);
+  font-weight: 900;
+  line-height: 1;
+}
+.cards-playing-suit {
+  font-size: clamp(1.5rem, 6vw, 2.2rem);
+}
+.cards-describer-copy,
+.cards-reveal-copy,
+.cards-guess-sent {
+  margin: 0;
+  max-width: 36ch;
+  color: var(--text-muted);
+  font-size: 0.92rem;
+  line-height: 1.4;
+}
+.cards-guess-pad {
+  width: 100%;
+  margin-top: 0.5rem;
+}
+.cards-guess-label {
+  margin: 0 0 0.5rem;
+  text-align: center;
+  font-weight: 700;
+}
+.cards-guess-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(2.6rem, 1fr));
+  gap: 0.4rem;
+}
+.cards-guess-btn {
+  min-height: 2.6rem;
+  font-weight: 800;
+}
+.cards-score-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  gap: 0.65rem;
+}
+.cards-score-row {
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  padding: 0.55rem 0.65rem;
+  background: var(--surface-2);
+}
+.cards-score-row.is-self {
+  border-color: var(--accent);
+}
+.cards-score-header {
+  display: grid;
+  grid-template-columns: auto 1fr auto;
+  gap: 0.45rem;
+  align-items: center;
+}
+.cards-score-rank {
+  font-weight: 800;
+  color: var(--text-muted);
+  font-size: 0.8rem;
+}
+.cards-score-name {
+  font-weight: 700;
+  font-size: 0.92rem;
+}
+.cards-score-count {
+  font-weight: 900;
+  font-size: 1.1rem;
+}
+.cards-collected {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.25rem;
+  margin-top: 0.45rem;
+}
+.cards-mini {
+  font-size: 0.72rem;
+  font-weight: 800;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  padding: 0.1rem 0.3rem;
+  background: var(--surface);
+}
+.cards-mini.is-red {
+  color: #dc2626;
+}
+.cards-self-total {
+  margin: 0.75rem 0 0;
+  color: var(--text-muted);
+  font-size: 0.85rem;
+}
+.cards-winner-name,
+.cards-describer-name {
+  font-weight: 800;
+}
+
+@media (max-width: 820px) {
+  .cards-play-layout {
+    grid-template-columns: 1fr;
+  }
+}
+
+@media (prefers-color-scheme: dark) {
+  .cards-playing-card {
+    background: linear-gradient(160deg, #1f2937, #111827);
+  }
+  .cards-playing-card.is-black {
+    color: #f9fafb;
+  }
 }

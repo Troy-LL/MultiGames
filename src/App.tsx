@@ -8,6 +8,7 @@ import { Controls } from './components/Controls'
 import { Join } from './components/Join'
 import { Players } from './components/Players'
 import { Wordle } from './components/Wordle'
+import { Cards } from './components/Cards'
 import { usePartyGame } from './lib/usePartyGame'
 
 interface Profile {
@@ -51,6 +52,12 @@ export default function App() {
     switchGame,
     submitWordleGuess,
     resetWordle,
+    startCards,
+    drawCard,
+    guessCard,
+    nextCardsRound,
+    skipCardsRound,
+    resetCards,
   } = usePartyGame(room, profile)
 
   const handleJoin = useCallback((name: string, color: string) => {
@@ -124,7 +131,7 @@ export default function App() {
 
   // Keep the document title fresh with the room name.
   useEffect(() => {
-    document.title = `Sudoku + Wordle · ${room}`
+    document.title = `Multiplayer Games · ${room}`
   }, [room])
 
   useEffect(() => {
@@ -148,7 +155,7 @@ export default function App() {
         <header className="app-header">
           <div>
             <h1 className="app-title">Choose your game</h1>
-            <p className="app-subtitle">Start with Sudoku or race today&apos;s Wordle.</p>
+            <p className="app-subtitle">Start with Sudoku, Wordle, or the card game.</p>
           </div>
           <RoomBadge room={room} />
         </header>
@@ -165,7 +172,7 @@ export default function App() {
       <header className="app-header">
         <div>
           <h1 className="app-title">Multiplayer Games</h1>
-          <p className="app-subtitle">Play Sudoku or daily Wordle together.</p>
+          <p className="app-subtitle">Play Sudoku, daily Wordle, or She&apos;s a 2 together.</p>
         </div>
         <RoomBadge room={room} />
       </header>
@@ -201,7 +208,7 @@ export default function App() {
                   onInput={(n) => selected !== null && handleFill(selected, n)}
                 />
               </>
-            ) : (
+            ) : game.kind === 'wordle' ? (
               <Wordle
                 key={`wordle:${game.version}`}
                 game={game}
@@ -209,6 +216,19 @@ export default function App() {
                 status={status}
                 onSubmitGuess={submitWordleGuess}
                 onReset={handleWordleReset}
+              />
+            ) : (
+              <Cards
+                key={`cards:${game.version}`}
+                game={game}
+                selfId={selfId}
+                status={status}
+                onStart={startCards}
+                onDraw={drawCard}
+                onGuess={guessCard}
+                onNextRound={nextCardsRound}
+                onSkip={skipCardsRound}
+                onReset={resetCards}
               />
             )
           ) : (
@@ -285,6 +305,23 @@ function GameLanding({
             Solve today&apos;s word fastest, or team up with hidden letters.
           </span>
         </button>
+
+        <button
+          type="button"
+          className="game-choice-card cards-choice"
+          onClick={() => onChoose('cards')}
+        >
+          <span className="cards-card-preview" aria-hidden="true">
+            <span className="cards-preview-card is-red">2♥</span>
+            <span className="cards-preview-card is-black">K♠</span>
+            <span className="cards-preview-card is-red">A♦</span>
+          </span>
+          <span className="game-choice-kicker">Party guess</span>
+          <span className="game-choice-title">She&apos;s a 2</span>
+          <span className="game-choice-copy">
+            Draw a card, describe the rank, and collect cards when you guess right.
+          </span>
+        </button>
       </div>
     </section>
   )
@@ -299,7 +336,7 @@ function GameTabs({
 }) {
   return (
     <div className="game-tabs" role="tablist" aria-label="Game">
-      {(['sudoku', 'wordle'] as const).map((game) => (
+      {(['sudoku', 'wordle', 'cards'] as const).map((game) => (
         <button
           key={game}
           type="button"
@@ -308,7 +345,7 @@ function GameTabs({
           className={`game-tab ${active === game ? 'is-active' : ''}`}
           onClick={() => onSwitch(game)}
         >
-          {game === 'sudoku' ? 'Sudoku' : 'Wordle'}
+          {game === 'sudoku' ? 'Sudoku' : game === 'wordle' ? 'Wordle' : "She's a 2"}
         </button>
       ))}
     </div>
