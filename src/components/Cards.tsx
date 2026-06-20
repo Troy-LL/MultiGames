@@ -8,21 +8,32 @@ import {
   type CardRank,
 } from '../../shared/cards'
 import type { CardsSnapshot } from '../../shared/protocol'
+import type { LocalCardsPlayer } from '../lib/useLocalCardsGame'
 import type { ConnectionStatus } from '../lib/usePartyGame'
+import { initials } from '../lib/colors'
+
+export type CardsMode = 'online' | 'local'
 
 interface CardsProps {
+  mode: CardsMode
   game: CardsSnapshot
   selfId: string | null
-  status: ConnectionStatus
+  status: ConnectionStatus | 'local'
   onStart: () => void
   onDraw: () => void
   onGuess: (rank: CardRank) => void
   onNextRound: () => void
   onSkip: () => void
   onReset: () => void
+  roster?: LocalCardsPlayer[]
+  holderId?: string | null
+  guessedThisRound?: string[]
+  onClaimDevice?: (playerId: string) => void
+  onReleaseDevice?: () => void
 }
 
 export function Cards({
+  mode,
   game,
   selfId,
   status,
@@ -32,6 +43,11 @@ export function Cards({
   onNextRound,
   onSkip,
   onReset,
+  roster = [],
+  holderId = null,
+  guessedThisRound = [],
+  onClaimDevice,
+  onReleaseDevice,
 }: CardsProps) {
   const [showHints, setShowHints] = useState(false)
   const [guessedVersion, setGuessedVersion] = useState<number | null>(null)
@@ -41,28 +57,34 @@ export function Cards({
     setGuessedVersion(null)
   }
 
-  const isDescriber = selfId !== null && selfId === game.describerId
+  const isLocal = mode === 'local'
+  const activeId = isLocal ? holderId : selfId
+  const isDescriber = activeId !== null && activeId === game.describerId
   const describer = game.scores.find((score) => score.playerId === game.describerId)
-  const selfScore = game.scores.find((score) => score.playerId === selfId)
+  const selfScore = game.scores.find((score) => score.playerId === activeId)
   const winner = game.scores.find((score) => score.playerId === game.winnerId)
   const lastWinner = game.scores.find((score) => score.playerId === game.lastWinnerId)
+  const holder = roster.find((player) => player.id === holderId)
   const alreadyGuessed =
-    selfId !== null &&
+    activeId !== null &&
     game.phase === 'describing' &&
-    guessedVersion === game.version
+    (isLocal
+      ? guessedThisRound.includes(activeId)
+      : guessedVersion === game.version)
 
+  const canAct = isLocal ? holderId !== null : status === 'online'
   const canGuess =
     !isDescriber &&
     game.phase === 'describing' &&
     !alreadyGuessed &&
-    status === 'online'
+    canAct
 
   const handleGuess = useCallback(
     (rank: CardRank) => {
-      setGuessedVersion(game.version)
+      if (!isLocal) setGuessedVersion(game.version)
       onGuess(rank)
     },
-    [game.version, onGuess],
+    [game.version, isLocal, onGuess],
   )
 
   const phaseLabel = useMemo(() => {
@@ -73,30 +95,56 @@ export function Cards({
     return 'Round resolved'
   }, [game.describerId, game.finished, game.phase])
 
+  const passTarget = useMemo(() => {
+    if (!isLocal || !describer) return null
+    if (game.phase === 'describing' && holderId !== game.describerId) {
+      return describer.name
+    }
+    if (game.phase === 'describing' && holderId === game.describerId && game.currentCard) {
+      return 'guessers'
+    }
+    if (game.phase === 'describing' && holderId === game.describerId && !game.currentCard) {
+      return null
+    }
+    if (game.phase === 'describing') return 'a guesser'
+    if (game.phase === 'waiting' && describer) return describer.name
+    return null
+  }, [describer, game.currentCard, game.describerId, game.phase, holderId, isLocal])
+
   return (
     <div className="cards-game">
       <div className="cards-controls">
         <div className="cards-status">
           <span className="cards-phase">{phaseLabel}</span>
           <span className="cards-deck-count">{game.cardsRemaining} cards left</span>
+          {isLocal ? (
+            <span className="cards-mode-badge">Pass &amp; play · no server needed</span>
+          ) : null}
         </div>
         <div className="cards-actions">
           {!game.describerId && !game.finished ? (
-            <button type="button" className="btn btn-primary" onClick={onStart}>
+            <button type="button" className="btn btn-primary" onClick={onStart} disabled={!canAct && !isLocal}>
               Start game
             </button>
           ) : null}
-          {isDescriber && game.phase === 'waiting' && !game.finished ? (
+          {isDescriber && game.phase === 'waiting' && !game.finished && canAct ? (
             <button type="button" className="btn btn-primary" onClick={onDraw}>
               Draw card
             </button>
           ) : null}
-          {isDescriber && game.phase === 'describing' ? (
-            <button type="button" className="btn" onClick={onSkip}>
-              Nobody got it
-            </button>
+          {isDescriber && game.phase === 'describing' && canAct ? (
+            <>
+              {isLocal && game.currentCard && onReleaseDevice ? (
+                <button type="button" className="btn btn-primary" onClick={onReleaseDevice}>
+                  Pass to guessers
+                </button>
+              ) : null}
+              <button type="button" className="btn" onClick={onSkip}>
+                Nobody got it
+              </button>
+            </>
           ) : null}
-          {isDescriber && game.phase === 'resolved' && !game.finished ? (
+          {isDescriber && game.phase === 'resolved' && !game.finished && canAct ? (
             <button type="button" className="btn btn-primary" onClick={onNextRound}>
               Next round
             </button>
@@ -114,6 +162,49 @@ export function Cards({
           </button>
         </div>
       </div>
+
+      {isLocal ? (
+        <section className="cards-handoff" aria-label="Who has the device">
+          {holder ? (
+            <p className="cards-handoff-active">
+              <span className="player-dot" style={{ background: holder.color, color: '#fff' }}>
+                {initials(holder.name)}
+              </span>
+              <span>
+                <strong style={{ color: holder.color }}>{holder.name}</strong> has the device
+              </span>
+              <button type="button" className="btn" onClick={onReleaseDevice}>
+                Put down
+              </button>
+            </p>
+          ) : (
+            <p className="cards-handoff-prompt">
+              {passTarget
+                ? `Pass the device to ${passTarget === 'guessers' ? 'someone guessing' : passTarget}.`
+                : 'Tap your name when you have the device.'}
+            </p>
+          )}
+          <div className="cards-handoff-players" role="group" aria-label="Claim device">
+            {roster.map((player) => (
+              <button
+                key={player.id}
+                type="button"
+                className={`btn cards-handoff-btn ${holderId === player.id ? 'is-active' : ''}`}
+                onClick={() => onClaimDevice?.(player.id)}
+              >
+                <span
+                  className="player-dot"
+                  style={{ background: player.color, color: '#fff' }}
+                  aria-hidden="true"
+                >
+                  {initials(player.name)}
+                </span>
+                {player.name}
+              </button>
+            ))}
+          </div>
+        </section>
+      ) : null}
 
       {showHints ? (
         <section className="cards-hints" aria-label="Rank hints">
@@ -154,10 +245,14 @@ export function Cards({
                   <span className="cards-describer-name" style={{ color: describer.color }}>
                     {describer.name}
                   </span>{' '}
-                  {isDescriber ? '— draw a card and describe it out loud.' : 'is describing next.'}
+                  {isDescriber
+                    ? '— draw a card and describe it out loud.'
+                    : isLocal
+                      ? 'is describing next. Pass them the device.'
+                      : 'is describing next.'}
                 </p>
               ) : (
-                <p>Hit start when everyone has joined.</p>
+                <p>{isLocal ? 'Add players and start when ready.' : 'Hit start when everyone has joined.'}</p>
               )}
             </div>
           ) : game.currentCard ? (
@@ -197,6 +292,17 @@ export function Cards({
                 </p>
               ) : null}
             </div>
+          ) : isLocal && isDescriber && game.phase === 'describing' && canAct ? (
+            <div className="cards-waiting">
+              <p>Tap draw to pull the next card.</p>
+              <button type="button" className="btn btn-primary" onClick={onDraw}>
+                Draw card
+              </button>
+            </div>
+          ) : isLocal && game.phase === 'describing' && !game.currentCard ? (
+            <div className="cards-waiting">
+              <p>Only the describer should see the card. Pass them the device.</p>
+            </div>
           ) : (
             <div className="cards-waiting">
               <p>Waiting for the next card…</p>
@@ -221,9 +327,9 @@ export function Cards({
             </div>
           ) : null}
 
-          {alreadyGuessed ? (
+          {alreadyGuessed && game.phase === 'describing' ? (
             <p className="cards-guess-sent" aria-live="polite">
-              Guess sent. Waiting for others…
+              {isLocal ? 'Wrong guess — pass the device to someone else.' : 'Guess sent. Waiting for others…'}
             </p>
           ) : null}
         </section>
@@ -234,7 +340,7 @@ export function Cards({
             {game.scores.map((score, index) => (
               <li
                 key={score.playerId}
-                className={`cards-score-row ${score.playerId === selfId ? 'is-self' : ''}`}
+                className={`cards-score-row ${score.playerId === activeId ? 'is-self' : ''}`}
               >
                 <div className="cards-score-header">
                   <span className="cards-score-rank">#{index + 1}</span>
@@ -261,7 +367,10 @@ export function Cards({
             ))}
           </ol>
           {selfScore ? (
-            <p className="cards-self-total">You have {selfScore.cards.length} cards.</p>
+            <p className="cards-self-total">
+              {isLocal && holder ? `${holder.name} has ` : 'You have '}
+              {selfScore.cards.length} cards.
+            </p>
           ) : null}
         </section>
       </div>
