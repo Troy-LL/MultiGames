@@ -1,6 +1,12 @@
 import type * as Party from 'partykit/server'
 
 import {
+  createDeck,
+  shuffleDeck,
+  type CardRank,
+  type PlayingCard,
+} from '../shared/cards'
+import {
   generatePuzzle,
   isSolved,
   type Difficulty,
@@ -20,6 +26,9 @@ import {
   MAX_NAME_LENGTH,
   type ChatMessage,
   type ClientMessage,
+  type CardsPlayerScore,
+  type CardsPhase,
+  type CardsSnapshot,
   type GameKind,
   type GameSnapshot,
   type Player,
@@ -76,6 +85,19 @@ export default class MultiplayerGameServer implements Party.Server {
   private wordleMode: WordleMode = 'race'
   private wordleBoards = new Map<string, WordlePlayerState>()
 
+  private cardsVersion = 0
+  private cardsPhase: CardsPhase = 'waiting'
+  private cardsDeck: PlayingCard[] = []
+  private cardsCurrent: PlayingCard | null = null
+  private cardsDescriberId: string | null = null
+  private cardsDescriberOrder: string[] = []
+  private cardsDescriberIndex = 0
+  private cardsCollected = new Map<string, PlayingCard[]>()
+  private cardsGuessedThisRound = new Set<string>()
+  private cardsLastWinnerId: string | null = null
+  private cardsFinished = false
+  private cardsWinnerId: string | null = null
+
   private players = new Map<string, Player>()
   private messages: ChatMessage[] = []
 
@@ -84,6 +106,7 @@ export default class MultiplayerGameServer implements Party.Server {
   onStart() {
     this.newSudokuGame('easy')
     this.resetWordle('race')
+    this.resetCards()
   }
 
   private newSudokuGame(difficulty: Difficulty) {
@@ -190,10 +213,93 @@ export default class MultiplayerGameServer implements Party.Server {
     }
   }
 
+  private resetCards() {
+    this.cardsVersion++
+    this.cardsPhase = 'waiting'
+    this.cardsDeck = shuffleDeck(createDeck())
+    this.cardsCurrent = null
+    this.cardsDescriberId = null
+    this.cardsDescriberOrder = [...this.players.keys()]
+    this.cardsDescriberIndex = 0
+    this.cardsCollected.clear()
+    for (const player of this.players.values()) {
+      this.cardsCollected.set(player.id, [])
+    }
+    this.cardsGuessedThisRound.clear()
+    this.cardsLastWinnerId = null
+    this.cardsFinished = false
+    this.cardsWinnerId = null
+    for (const player of this.players.values()) player.cursor = null
+  }
+
+  private ensureCardsPlayer(playerId: string) {
+    if (!this.cardsCollected.has(playerId)) {
+      this.cardsCollected.set(playerId, [])
+    }
+  }
+
+  private cardsScores(): CardsPlayerScore[] {
+    return [...this.players.values()]
+      .map((player) => ({
+        playerId: player.id,
+        name: player.name,
+        color: player.color,
+        cards: this.cardsCollected.get(player.id) ?? [],
+      }))
+      .sort((a, b) => {
+        if (b.cards.length !== a.cards.length) return b.cards.length - a.cards.length
+        return a.name.localeCompare(b.name)
+      })
+  }
+
+  private cardsWinner(): string | null {
+    const scores = this.cardsScores()
+    if (scores.length === 0 || scores[0].cards.length === 0) return null
+    const top = scores[0].cards.length
+    const leaders = scores.filter((score) => score.cards.length === top)
+    return leaders.length === 1 ? leaders[0].playerId : null
+  }
+
+  private advanceCardsDescriber() {
+    if (this.cardsDescriberOrder.length === 0) {
+      this.cardsDescriberId = null
+      return
+    }
+    this.cardsDescriberIndex =
+      (this.cardsDescriberIndex + 1) % this.cardsDescriberOrder.length
+    this.cardsDescriberId = this.cardsDescriberOrder[this.cardsDescriberIndex]
+  }
+
+  private setCardsDescriber(playerId: string) {
+    this.cardsDescriberId = playerId
+    const index = this.cardsDescriberOrder.indexOf(playerId)
+    if (index >= 0) this.cardsDescriberIndex = index
+  }
+
+  private cardsSnapshot(viewerId: string): CardsSnapshot {
+    const showCard =
+      this.cardsCurrent !== null &&
+      (this.cardsPhase === 'resolved' ||
+        (this.cardsPhase === 'describing' && viewerId === this.cardsDescriberId))
+
+    return {
+      kind: 'cards',
+      version: this.cardsVersion,
+      phase: this.cardsPhase,
+      describerId: this.cardsDescriberId,
+      cardsRemaining: this.cardsDeck.length,
+      scores: this.cardsScores(),
+      currentCard: showCard ? this.cardsCurrent : null,
+      lastWinnerId: this.cardsLastWinnerId,
+      finished: this.cardsFinished,
+      winnerId: this.cardsWinnerId,
+    }
+  }
+
   private snapshotFor(viewerId: string): GameSnapshot {
-    return this.activeGame === 'wordle'
-      ? this.wordleSnapshot(viewerId)
-      : this.sudokuSnapshot()
+    if (this.activeGame === 'wordle') return this.wordleSnapshot(viewerId)
+    if (this.activeGame === 'cards') return this.cardsSnapshot(viewerId)
+    return this.sudokuSnapshot()
   }
 
   private broadcast(message: ServerMessage, exclude?: string[]) {
@@ -218,6 +324,14 @@ export default class MultiplayerGameServer implements Party.Server {
       cursor: null,
     }
     this.players.set(conn.id, player)
+    this.ensureCardsPlayer(conn.id)
+    if (
+      this.activeGame === 'cards' &&
+      !this.cardsFinished &&
+      !this.cardsDescriberOrder.includes(conn.id)
+    ) {
+      this.cardsDescriberOrder.push(conn.id)
+    }
 
     this.send(conn, {
       type: 'snapshot',
@@ -232,8 +346,20 @@ export default class MultiplayerGameServer implements Party.Server {
   onClose(conn: Party.Connection) {
     this.players.delete(conn.id)
     this.wordleBoards.delete(conn.id)
+    this.cardsCollected.delete(conn.id)
+    this.cardsDescriberOrder = this.cardsDescriberOrder.filter((id) => id !== conn.id)
+    if (this.cardsDescriberId === conn.id) {
+      if (this.cardsDescriberOrder.length > 0) {
+        this.cardsDescriberIndex %= this.cardsDescriberOrder.length
+        this.cardsDescriberId = this.cardsDescriberOrder[this.cardsDescriberIndex]
+      } else {
+        this.cardsDescriberId = null
+      }
+    }
     this.broadcastPlayers()
-    if (this.activeGame === 'wordle') this.broadcastActiveGame()
+    if (this.activeGame === 'wordle' || this.activeGame === 'cards') {
+      this.broadcastActiveGame()
+    }
   }
 
   private broadcastPlayers() {
@@ -258,8 +384,11 @@ export default class MultiplayerGameServer implements Party.Server {
             : ''
         player.name = name || 'Guest'
         player.color = sanitizeColor(msg.color, player.color)
+        this.ensureCardsPlayer(player.id)
         this.broadcastPlayers()
-        if (this.activeGame === 'wordle') this.broadcastActiveGame()
+        if (this.activeGame === 'wordle' || this.activeGame === 'cards') {
+          this.broadcastActiveGame()
+        }
         break
       }
       case 'cursor': {
@@ -323,9 +452,12 @@ export default class MultiplayerGameServer implements Party.Server {
         break
       }
       case 'switchGame': {
-        if (msg.game !== 'sudoku' && msg.game !== 'wordle') break
+        if (msg.game !== 'sudoku' && msg.game !== 'wordle' && msg.game !== 'cards') break
         this.activeGame = msg.game
         if (this.activeGame === 'wordle') this.ensureWordleIsCurrent()
+        if (this.activeGame === 'cards' && this.cardsPhase === 'waiting' && this.cardsDeck.length === 0) {
+          this.resetCards()
+        }
         for (const activePlayer of this.players.values()) activePlayer.cursor = null
         this.broadcastActiveGame()
         this.broadcastPlayers()
@@ -356,6 +488,97 @@ export default class MultiplayerGameServer implements Party.Server {
         if (this.activeGame !== 'wordle') break
         const mode: WordleMode = msg.mode === 'team' ? 'team' : 'race'
         this.resetWordle(mode)
+        this.broadcastActiveGame()
+        this.broadcastPlayers()
+        break
+      }
+      case 'cardsStart': {
+        if (this.activeGame !== 'cards') break
+        if (this.cardsPhase !== 'waiting' || this.cardsFinished) break
+        this.cardsDescriberOrder = [...this.players.keys()]
+        if (this.cardsDescriberOrder.length === 0) break
+        this.cardsDescriberIndex = 0
+        this.cardsDescriberId = this.cardsDescriberOrder[0]
+        this.cardsVersion++
+        this.broadcastActiveGame()
+        break
+      }
+      case 'cardsDraw': {
+        if (this.activeGame !== 'cards') break
+        if (msg.version !== this.cardsVersion) break
+        if (this.cardsFinished) break
+        if (this.cardsPhase !== 'waiting' && this.cardsPhase !== 'resolved') break
+        if (sender.id !== this.cardsDescriberId) break
+        if (this.cardsDeck.length === 0) {
+          this.cardsFinished = true
+          this.cardsWinnerId = this.cardsWinner()
+          this.cardsVersion++
+          this.broadcastActiveGame()
+          break
+        }
+        this.cardsCurrent = this.cardsDeck.pop() ?? null
+        this.cardsPhase = 'describing'
+        this.cardsGuessedThisRound.clear()
+        this.cardsLastWinnerId = null
+        this.cardsVersion++
+        this.broadcastActiveGame()
+        break
+      }
+      case 'cardsGuess': {
+        if (this.activeGame !== 'cards') break
+        if (msg.version !== this.cardsVersion) break
+        if (this.cardsPhase !== 'describing' || !this.cardsCurrent) break
+        if (sender.id === this.cardsDescriberId) break
+        if (this.cardsGuessedThisRound.has(sender.id)) break
+        const rank = msg.rank as CardRank
+        if (!rank) break
+        this.cardsGuessedThisRound.add(sender.id)
+        if (rank !== this.cardsCurrent.rank) break
+
+        this.ensureCardsPlayer(sender.id)
+        this.cardsCollected.get(sender.id)?.push(this.cardsCurrent)
+        this.cardsLastWinnerId = sender.id
+        this.cardsPhase = 'resolved'
+        this.cardsVersion++
+        this.broadcastActiveGame()
+        break
+      }
+      case 'cardsNextRound': {
+        if (this.activeGame !== 'cards') break
+        if (msg.version !== this.cardsVersion) break
+        if (this.cardsPhase !== 'resolved') break
+        if (sender.id !== this.cardsDescriberId) break
+        this.cardsCurrent = null
+        this.cardsGuessedThisRound.clear()
+        this.advanceCardsDescriber()
+        if (this.cardsDeck.length === 0) {
+          this.cardsPhase = 'waiting'
+          this.cardsFinished = true
+          this.cardsWinnerId = this.cardsWinner()
+        } else {
+          this.cardsPhase = 'waiting'
+        }
+        this.cardsVersion++
+        this.broadcastActiveGame()
+        break
+      }
+      case 'cardsSkip': {
+        if (this.activeGame !== 'cards') break
+        if (msg.version !== this.cardsVersion) break
+        if (this.cardsPhase !== 'describing' || !this.cardsCurrent) break
+        if (sender.id !== this.cardsDescriberId) break
+        this.cardsDeck.unshift(this.cardsCurrent)
+        this.cardsCurrent = null
+        this.cardsGuessedThisRound.clear()
+        this.cardsPhase = 'resolved'
+        this.cardsLastWinnerId = null
+        this.cardsVersion++
+        this.broadcastActiveGame()
+        break
+      }
+      case 'cardsReset': {
+        if (this.activeGame !== 'cards') break
+        this.resetCards()
         this.broadcastActiveGame()
         this.broadcastPlayers()
         break

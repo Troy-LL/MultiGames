@@ -8,7 +8,11 @@ import { Controls } from './components/Controls'
 import { Join } from './components/Join'
 import { Players } from './components/Players'
 import { Wordle } from './components/Wordle'
+import { Cards } from './components/Cards'
+import { CardsLocalApp } from './components/CardsLocalApp'
 import { usePartyGame } from './lib/usePartyGame'
+
+type CardsPlayMode = 'local' | 'online'
 
 interface Profile {
   name: string
@@ -31,10 +35,24 @@ function getRoom(): string {
   return params.get('room')?.trim() || 'lobby'
 }
 
+function getCardsPlayMode(): CardsPlayMode | null {
+  const params = new URLSearchParams(window.location.search)
+  if (params.get('game') === 'cards') {
+    return params.get('mode') === 'local' ? 'local' : 'online'
+  }
+  return null
+}
+
+function getInitialGame(): GameKind | null {
+  const params = new URLSearchParams(window.location.search)
+  return params.get('game') === 'cards' ? 'cards' : null
+}
+
 export default function App() {
   const [profile, setProfile] = useState<Profile | null>(loadProfile)
   const [selected, setSelected] = useState<number | null>(null)
-  const [selectedGame, setSelectedGame] = useState<GameKind | null>(null)
+  const [selectedGame, setSelectedGame] = useState<GameKind | null>(getInitialGame)
+  const [cardsPlayMode, setCardsPlayMode] = useState<CardsPlayMode | null>(getCardsPlayMode)
   const [room] = useState(getRoom)
 
   const {
@@ -51,6 +69,12 @@ export default function App() {
     switchGame,
     submitWordleGuess,
     resetWordle,
+    startCards,
+    drawCard,
+    guessCard,
+    nextCardsRound,
+    skipCardsRound,
+    resetCards,
   } = usePartyGame(room, profile)
 
   const handleJoin = useCallback((name: string, color: string) => {
@@ -94,10 +118,29 @@ export default function App() {
     (gameKind: GameKind) => {
       setSelectedGame(gameKind)
       setSelected(null)
+      if (gameKind === 'cards') {
+        setCardsPlayMode(null)
+        return
+      }
+      setCardsPlayMode(null)
       if (status === 'online') switchGame(gameKind)
     },
     [status, switchGame],
   )
+
+  const handleChooseCardsMode = useCallback(
+    (mode: CardsPlayMode) => {
+      setCardsPlayMode(mode)
+      setSelectedGame('cards')
+      if (mode === 'online' && status === 'online') switchGame('cards')
+    },
+    [status, switchGame],
+  )
+
+  const handleBackFromLocalCards = useCallback(() => {
+    setSelectedGame(null)
+    setCardsPlayMode(null)
+  }, [])
 
   const handleWordleReset = useCallback(
     (mode: WordleMode) => resetWordle(mode),
@@ -124,7 +167,7 @@ export default function App() {
 
   // Keep the document title fresh with the room name.
   useEffect(() => {
-    document.title = `Sudoku + Wordle · ${room}`
+    document.title = `Multiplayer Games · ${room}`
   }, [room])
 
   useEffect(() => {
@@ -138,8 +181,8 @@ export default function App() {
     }
   }, [game?.kind, profile, selectedGame, status, switchGame])
 
-  if (!profile) {
-    return <Join onJoin={handleJoin} />
+  if (selectedGame === 'cards' && cardsPlayMode === 'local') {
+    return <CardsLocalApp onBack={handleBackFromLocalCards} />
   }
 
   if (!selectedGame) {
@@ -148,7 +191,7 @@ export default function App() {
         <header className="app-header">
           <div>
             <h1 className="app-title">Choose your game</h1>
-            <p className="app-subtitle">Start with Sudoku or race today&apos;s Wordle.</p>
+            <p className="app-subtitle">Start with Sudoku, Wordle, or the card game.</p>
           </div>
           <RoomBadge room={room} />
         </header>
@@ -160,12 +203,43 @@ export default function App() {
     )
   }
 
+  if (selectedGame === 'cards' && cardsPlayMode === null) {
+    return (
+      <div className="app game-landing-app">
+        <header className="app-header">
+          <div>
+            <h1 className="app-title">She&apos;s a 2</h1>
+            <p className="app-subtitle">Play on one device or connect online.</p>
+          </div>
+          <button
+            type="button"
+            className="btn"
+            onClick={() => {
+              setSelectedGame(null)
+              setCardsPlayMode(null)
+            }}
+          >
+            Back
+          </button>
+        </header>
+
+        <main className="game-landing" aria-label="Choose how to play">
+          <CardsModePicker onChoose={handleChooseCardsMode} />
+        </main>
+      </div>
+    )
+  }
+
+  if (!profile) {
+    return <Join onJoin={handleJoin} />
+  }
+
   return (
     <div className="app">
       <header className="app-header">
         <div>
           <h1 className="app-title">Multiplayer Games</h1>
-          <p className="app-subtitle">Play Sudoku or daily Wordle together.</p>
+          <p className="app-subtitle">Play Sudoku, daily Wordle, or She&apos;s a 2 together.</p>
         </div>
         <RoomBadge room={room} />
       </header>
@@ -201,7 +275,7 @@ export default function App() {
                   onInput={(n) => selected !== null && handleFill(selected, n)}
                 />
               </>
-            ) : (
+            ) : game.kind === 'wordle' ? (
               <Wordle
                 key={`wordle:${game.version}`}
                 game={game}
@@ -209,6 +283,20 @@ export default function App() {
                 status={status}
                 onSubmitGuess={submitWordleGuess}
                 onReset={handleWordleReset}
+              />
+            ) : (
+              <Cards
+                key={`cards:${game.version}`}
+                mode="online"
+                game={game}
+                selfId={selfId}
+                status={status}
+                onStart={startCards}
+                onDraw={drawCard}
+                onGuess={guessCard}
+                onNextRound={nextCardsRound}
+                onSkip={skipCardsRound}
+                onReset={resetCards}
               />
             )
           ) : (
@@ -285,6 +373,64 @@ function GameLanding({
             Solve today&apos;s word fastest, or team up with hidden letters.
           </span>
         </button>
+
+        <button
+          type="button"
+          className="game-choice-card cards-choice"
+          onClick={() => onChoose('cards')}
+        >
+          <span className="cards-card-preview" aria-hidden="true">
+            <span className="cards-preview-card is-red">2♥</span>
+            <span className="cards-preview-card is-black">K♠</span>
+            <span className="cards-preview-card is-red">A♦</span>
+          </span>
+          <span className="game-choice-kicker">Party guess</span>
+          <span className="game-choice-title">She&apos;s a 2</span>
+          <span className="game-choice-copy">
+            Draw a card, describe the rank, and collect cards when you guess right. Pass &amp; play or online.
+          </span>
+        </button>
+      </div>
+    </section>
+  )
+}
+
+function CardsModePicker({ onChoose }: { onChoose: (mode: CardsPlayMode) => void }) {
+  return (
+    <section className="game-landing-card cards-mode-picker">
+      <div className="cards-mode-grid">
+        <button
+          type="button"
+          className="game-choice-card cards-choice cards-mode-local"
+          onClick={() => onChoose('local')}
+        >
+          <span className="cards-card-preview" aria-hidden="true">
+            <span className="cards-preview-card is-red">2♥</span>
+            <span className="cards-preview-card is-black">K♠</span>
+          </span>
+          <span className="game-choice-kicker">One device</span>
+          <span className="game-choice-title">Pass &amp; play</span>
+          <span className="game-choice-copy">
+            Add players on this phone and pass it around. No internet or server needed.
+          </span>
+        </button>
+
+        <button
+          type="button"
+          className="game-choice-card cards-choice cards-mode-online"
+          onClick={() => onChoose('online')}
+        >
+          <span className="cards-card-preview" aria-hidden="true">
+            <span className="cards-preview-card is-red">A♦</span>
+            <span className="cards-preview-card is-black">7♣</span>
+            <span className="cards-preview-card is-red">Q♥</span>
+          </span>
+          <span className="game-choice-kicker">Multiplayer</span>
+          <span className="game-choice-title">Online room</span>
+          <span className="game-choice-copy">
+            Everyone on their own phone in the same room via PartyKit.
+          </span>
+        </button>
       </div>
     </section>
   )
@@ -299,7 +445,7 @@ function GameTabs({
 }) {
   return (
     <div className="game-tabs" role="tablist" aria-label="Game">
-      {(['sudoku', 'wordle'] as const).map((game) => (
+      {(['sudoku', 'wordle', 'cards'] as const).map((game) => (
         <button
           key={game}
           type="button"
@@ -308,7 +454,7 @@ function GameTabs({
           className={`game-tab ${active === game ? 'is-active' : ''}`}
           onClick={() => onSwitch(game)}
         >
-          {game === 'sudoku' ? 'Sudoku' : 'Wordle'}
+          {game === 'sudoku' ? 'Sudoku' : game === 'wordle' ? 'Wordle' : "She's a 2"}
         </button>
       ))}
     </div>

@@ -1,10 +1,11 @@
 // Wire protocol shared between the PartyKit server and the React client.
+import type { CardRank, PlayingCard } from './cards'
 import type { Difficulty } from './sudoku'
 import type { WordleMark } from './wordle'
 
-export type { Difficulty, WordleMark }
+export type { CardRank, Difficulty, PlayingCard, WordleMark }
 
-export type GameKind = 'sudoku' | 'wordle'
+export type GameKind = 'sudoku' | 'wordle' | 'cards'
 export type WordleMode = 'race' | 'team'
 
 export interface Player {
@@ -69,7 +70,30 @@ export interface WordleSnapshot {
   answer: string | null
 }
 
-export type GameSnapshot = SudokuSnapshot | WordleSnapshot
+export type CardsPhase = 'waiting' | 'describing' | 'resolved'
+
+export interface CardsPlayerScore {
+  playerId: string
+  name: string
+  color: string
+  cards: PlayingCard[]
+}
+
+export interface CardsSnapshot {
+  kind: 'cards'
+  version: number
+  phase: CardsPhase
+  describerId: string | null
+  cardsRemaining: number
+  scores: CardsPlayerScore[]
+  /** Hidden from guessers during the describing phase. */
+  currentCard: PlayingCard | null
+  lastWinnerId: string | null
+  finished: boolean
+  winnerId: string | null
+}
+
+export type GameSnapshot = SudokuSnapshot | WordleSnapshot | CardsSnapshot
 
 /** Identifies who made the most recent cell change, for UI feedback. */
 export interface CellChange {
@@ -87,6 +111,12 @@ export type ClientMessage =
   | { type: 'switchGame'; game: GameKind }
   | { type: 'wordleGuess'; guess: string; version: number }
   | { type: 'wordleReset'; mode: WordleMode }
+  | { type: 'cardsStart' }
+  | { type: 'cardsDraw'; version: number }
+  | { type: 'cardsGuess'; rank: CardRank; version: number }
+  | { type: 'cardsNextRound'; version: number }
+  | { type: 'cardsSkip'; version: number }
+  | { type: 'cardsReset' }
 
 // Server -> Client
 export type ServerMessage =
