@@ -147,10 +147,23 @@ export function cardsGameDraw(
   }
 }
 
+function allGuessersHaveGuessed(
+  state: CardsGameState,
+  players: CardsGamePlayer[],
+  guessedThisRound: string[],
+): boolean {
+  const guessers = players.filter((player) => player.id !== state.describerId)
+  return (
+    guessers.length > 0 &&
+    guessers.every((player) => guessedThisRound.includes(player.id))
+  )
+}
+
 export function cardsGameGuess(
   state: CardsGameState,
   actorId: string,
   rank: CardRank,
+  players: CardsGamePlayer[],
 ): CardsGameState | null {
   if (state.phase !== 'describing' || !state.current) return null
   if (actorId === state.describerId) return null
@@ -158,7 +171,17 @@ export function cardsGameGuess(
 
   const guessedThisRound = [...state.guessedThisRound, actorId]
   if (rank !== state.current.rank) {
-    return { ...state, guessedThisRound }
+    if (allGuessersHaveGuessed(state, players, guessedThisRound)) {
+      return {
+        ...state,
+        version: state.version + 1,
+        deck: [state.current, ...state.deck],
+        guessedThisRound,
+        lastWinnerId: null,
+        phase: 'resolved',
+      }
+    }
+    return { ...state, version: state.version + 1, guessedThisRound }
   }
 
   const collected = {
@@ -215,7 +238,6 @@ export function cardsGameSkip(
     ...state,
     version: state.version + 1,
     deck: [state.current, ...state.deck],
-    current: null,
     guessedThisRound: [],
     lastWinnerId: null,
     phase: 'resolved',
@@ -242,6 +264,7 @@ export function cardsGameSnapshot(
     cardsRemaining: state.deck.length,
     scores: buildScores(players, state.collected),
     currentCard: options.showCurrentCard ? state.current : null,
+    guessedThisRound: state.guessedThisRound,
     lastWinnerId: state.lastWinnerId,
     finished: state.finished,
     winnerId,

@@ -24,7 +24,6 @@ export interface LocalCardsGame {
   started: boolean
   holderId: string | null
   cardVisible: boolean
-  guessedThisRound: string[]
   addPlayer: (name: string, color: string) => void
   removePlayer: (playerId: string) => void
   claimDevice: (playerId: string) => void
@@ -122,7 +121,7 @@ export function useLocalCardsGame(): LocalCardsGame {
   }, [players, state])
 
   const draw = useCallback(() => {
-    if (!holderId) return
+    if (!holderId || holderId !== state.describerId) return
     const next = cardsGameDraw(state, holderId, players)
     if (!next) return
     setState(next)
@@ -131,17 +130,18 @@ export function useLocalCardsGame(): LocalCardsGame {
 
   const guess = useCallback(
     (rank: CardRank) => {
-      if (!holderId) return
-      const next = cardsGameGuess(state, holderId, rank)
+      if (!holderId || holderId === state.describerId) return
+      const next = cardsGameGuess(state, holderId, rank, players)
       if (!next) return
       setState(next)
-      if (next.phase === 'resolved') setCardVisible(true)
+      setCardVisible(true)
+      setHolderId(null)
     },
-    [holderId, state],
+    [holderId, players, state],
   )
 
   const nextRound = useCallback(() => {
-    if (!holderId) return
+    if (!holderId || holderId !== state.describerId) return
     const next = cardsGameNextRound(state, holderId, players)
     if (!next) return
     setState(next)
@@ -150,7 +150,7 @@ export function useLocalCardsGame(): LocalCardsGame {
   }, [holderId, players, state])
 
   const skip = useCallback(() => {
-    if (!holderId) return
+    if (!holderId || holderId !== state.describerId) return
     const next = cardsGameSkip(state, holderId)
     if (!next) return
     setState(next)
@@ -169,7 +169,6 @@ export function useLocalCardsGame(): LocalCardsGame {
     started,
     holderId,
     cardVisible,
-    guessedThisRound: state.guessedThisRound,
     addPlayer,
     removePlayer,
     claimDevice,

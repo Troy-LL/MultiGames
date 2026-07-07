@@ -27,7 +27,6 @@ interface CardsProps {
   onReset: () => void
   roster?: LocalCardsPlayer[]
   holderId?: string | null
-  guessedThisRound?: string[]
   onClaimDevice?: (playerId: string) => void
   onReleaseDevice?: () => void
 }
@@ -45,17 +44,11 @@ export function Cards({
   onReset,
   roster = [],
   holderId = null,
-  guessedThisRound = [],
   onClaimDevice,
   onReleaseDevice,
 }: CardsProps) {
   const [showHints, setShowHints] = useState(false)
-  const [guessedVersion, setGuessedVersion] = useState<number | null>(null)
-  const [prevVersion, setPrevVersion] = useState(game.version)
-  if (game.version !== prevVersion) {
-    setPrevVersion(game.version)
-    setGuessedVersion(null)
-  }
+  const [guessSentAtVersion, setGuessSentAtVersion] = useState<number | null>(null)
 
   const isLocal = mode === 'local'
   const activeId = isLocal ? holderId : selfId
@@ -68,23 +61,26 @@ export function Cards({
   const alreadyGuessed =
     activeId !== null &&
     game.phase === 'describing' &&
-    (isLocal
-      ? guessedThisRound.includes(activeId)
-      : guessedVersion === game.version)
+    game.guessedThisRound.includes(activeId)
+  const pendingGuess =
+    guessSentAtVersion !== null &&
+    guessSentAtVersion === game.version &&
+    !alreadyGuessed
 
   const canAct = isLocal ? holderId !== null : status === 'online'
   const canGuess =
     !isDescriber &&
     game.phase === 'describing' &&
     !alreadyGuessed &&
+    !pendingGuess &&
     canAct
 
   const handleGuess = useCallback(
     (rank: CardRank) => {
-      if (!isLocal) setGuessedVersion(game.version)
+      setGuessSentAtVersion(game.version)
       onGuess(rank)
     },
-    [game.version, isLocal, onGuess],
+    [game.version, onGuess],
   )
 
   const phaseLabel = useMemo(() => {
@@ -97,19 +93,49 @@ export function Cards({
 
   const passTarget = useMemo(() => {
     if (!isLocal || !describer) return null
+    if (game.phase === 'resolved') return describer.name
+    if (game.phase === 'waiting') return describer.name
     if (game.phase === 'describing' && holderId !== game.describerId) {
       return describer.name
     }
     if (game.phase === 'describing' && holderId === game.describerId && game.currentCard) {
       return 'guessers'
     }
-    if (game.phase === 'describing' && holderId === game.describerId && !game.currentCard) {
-      return null
-    }
-    if (game.phase === 'describing') return 'a guesser'
-    if (game.phase === 'waiting' && describer) return describer.name
     return null
   }, [describer, game.currentCard, game.describerId, game.phase, holderId, isLocal])
+
+  const statusMessage = useMemo(() => {
+    if (game.finished) return null
+    if (game.phase === 'resolved' && describer) {
+      if (isDescriber && canAct) {
+        return 'Tap next round when everyone has seen the card.'
+      }
+      if (isLocal) {
+        return `Pass the device to ${describer.name} for the next round.`
+      }
+      return `Waiting for ${describer.name} to start the next round.`
+    }
+    if (game.phase === 'describing' && !isDescriber && alreadyGuessed) {
+      return isLocal
+        ? 'Wrong guess — pass the device to someone who has not guessed yet.'
+        : 'Guess sent — waiting for other players or the describer.'
+    }
+    if (game.phase === 'waiting' && describer && isDescriber && canAct) {
+      return 'Draw a card, describe it out loud, then pass to guessers.'
+    }
+    if (game.phase === 'waiting' && describer && !isDescriber && isLocal) {
+      return `Pass the device to ${describer.name} to draw the next card.`
+    }
+    return null
+  }, [
+    alreadyGuessed,
+    canAct,
+    describer,
+    game.finished,
+    game.phase,
+    isDescriber,
+    isLocal,
+  ])
 
   return (
     <div className="cards-game">
@@ -123,7 +149,12 @@ export function Cards({
         </div>
         <div className="cards-actions">
           {!game.describerId && !game.finished ? (
-            <button type="button" className="btn btn-primary" onClick={onStart} disabled={!canAct && !isLocal}>
+            <button
+              type="button"
+              className="btn btn-primary"
+              onClick={onStart}
+              disabled={!isLocal && status !== 'online'}
+            >
               Start game
             </button>
           ) : null}
@@ -163,6 +194,12 @@ export function Cards({
         </div>
       </div>
 
+      {statusMessage ? (
+        <p className="cards-status-banner" role="status">
+          {statusMessage}
+        </p>
+      ) : null}
+
       {isLocal ? (
         <section className="cards-handoff" aria-label="Who has the device">
           {holder ? (
@@ -180,7 +217,9 @@ export function Cards({
           ) : (
             <p className="cards-handoff-prompt">
               {passTarget
-                ? `Pass the device to ${passTarget === 'guessers' ? 'someone guessing' : passTarget}.`
+                ? `Pass the device to ${
+                    passTarget === 'guessers' ? 'someone guessing' : passTarget
+                  }.`
                 : 'Tap your name when you have the device.'}
             </p>
           )}
@@ -200,6 +239,7 @@ export function Cards({
                   {initials(player.name)}
                 </span>
                 {player.name}
+                {player.id === game.describerId ? ' · describing' : ''}
               </button>
             ))}
           </div>
@@ -246,10 +286,10 @@ export function Cards({
                     {describer.name}
                   </span>{' '}
                   {isDescriber
-                    ? '— draw a card and describe it out loud.'
+                    ? 'describes next — draw a card when ready.'
                     : isLocal
-                      ? 'is describing next. Pass them the device.'
-                      : 'is describing next.'}
+                      ? 'describes next — pass them the device.'
+                      : 'describes next.'}
                 </p>
               ) : (
                 <p>{isLocal ? 'Add players and start when ready.' : 'Hit start when everyone has joined.'}</p>
@@ -292,14 +332,7 @@ export function Cards({
                 </p>
               ) : null}
             </div>
-          ) : isLocal && isDescriber && game.phase === 'describing' && canAct ? (
-            <div className="cards-waiting">
-              <p>Tap draw to pull the next card.</p>
-              <button type="button" className="btn btn-primary" onClick={onDraw}>
-                Draw card
-              </button>
-            </div>
-          ) : isLocal && game.phase === 'describing' && !game.currentCard ? (
+          ) : isLocal && game.phase === 'describing' ? (
             <div className="cards-waiting">
               <p>Only the describer should see the card. Pass them the device.</p>
             </div>
@@ -326,12 +359,6 @@ export function Cards({
               </div>
             </div>
           ) : null}
-
-          {alreadyGuessed && game.phase === 'describing' ? (
-            <p className="cards-guess-sent" aria-live="polite">
-              {isLocal ? 'Wrong guess — pass the device to someone else.' : 'Guess sent. Waiting for others…'}
-            </p>
-          ) : null}
         </section>
 
         <section className="cards-standings" aria-label="Scores">
@@ -347,6 +374,11 @@ export function Cards({
                   <span className="cards-score-name" style={{ color: score.color }}>
                     {score.name}
                     {score.playerId === game.describerId ? ' · describing' : ''}
+                    {game.phase === 'describing' &&
+                    game.guessedThisRound.includes(score.playerId) &&
+                    score.playerId !== game.describerId
+                      ? ' · guessed'
+                      : ''}
                   </span>
                   <span className="cards-score-count">{score.cards.length}</span>
                 </div>

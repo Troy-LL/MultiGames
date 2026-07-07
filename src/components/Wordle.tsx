@@ -36,6 +36,12 @@ export function Wordle({
 }: WordleProps) {
   const [draft, setDraft] = useState('')
   const [error, setError] = useState<string | null>(null)
+  const [prevVersion, setPrevVersion] = useState(game.version)
+  if (game.version !== prevVersion) {
+    setPrevVersion(game.version)
+    setDraft('')
+    setError(null)
+  }
 
   const selfBoard = game.boards.find((board) => board.playerId === selfId)
   const canPlay =
