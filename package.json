@@ -9,11 +9,11 @@
   "scripts": {
     "dev": "concurrently -k -n web,party -c blue,magenta \"npm:dev:web\" \"npm:dev:party\"",
     "dev:web": "vite",
-    "dev:party": "wrangler dev --port 1999",
+    "dev:party": "npx wrangler dev --port 1999",
     "build": "tsc -b && vite build",
     "lint": "eslint .",
     "preview": "vite preview",
-    "deploy": "wrangler deploy"
+    "deploy": "npx wrangler deploy"
   },
   "dependencies": {
     "partyserver": "^0.5.8",
