@@ -72,7 +72,6 @@ export default class MultiplayerGameServer implements Party.Server {
   private activeGame: GameKind = 'sudoku'
 
   private sudokuVersion = 0
-  private sudokuPuzzle: Grid = []
   private sudokuGiven: boolean[] = []
   private sudokuValues: Grid = []
   private sudokuDifficulty: Difficulty = 'easy'
@@ -104,6 +103,15 @@ export default class MultiplayerGameServer implements Party.Server {
   constructor(readonly room: Party.Room) {}
 
   onStart() {
+    // Idempotent: only seed a fresh room. onStart can fire more than once for
+    // the same warm instance, and regenerating here would swap everyone's
+    // puzzle mid-game. `sudokuVersion` is only 0 before the first seed.
+    // ponytail: hibernation is OFF (no `static options = { hibernate: true }`),
+    // so the instance stays warm and this guard is enough. If hibernation is
+    // ever enabled, the instance is destroyed and these in-memory fields reset
+    // to 0 on wake — that WOULD regenerate the puzzle. Persisting across true
+    // hibernation needs room.storage; add it only if hibernation is turned on.
+    if (this.sudokuVersion > 0) return
     this.newSudokuGame('easy')
     this.resetWordle('race')
     this.resetCards()
@@ -112,7 +120,6 @@ export default class MultiplayerGameServer implements Party.Server {
   private newSudokuGame(difficulty: Difficulty) {
     const { puzzle } = generatePuzzle(difficulty)
     this.sudokuVersion++
-    this.sudokuPuzzle = puzzle
     this.sudokuGiven = puzzle.map((v) => v !== 0)
     this.sudokuValues = puzzle.slice()
     this.sudokuDifficulty = difficulty
@@ -125,7 +132,6 @@ export default class MultiplayerGameServer implements Party.Server {
     return {
       kind: 'sudoku',
       version: this.sudokuVersion,
-      puzzle: this.sudokuPuzzle,
       given: this.sudokuGiven,
       values: this.sudokuValues,
       solved: this.sudokuSolved,

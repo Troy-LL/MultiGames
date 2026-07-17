@@ -52,9 +52,12 @@ export function CardsSetup({ players, onAdd, onRemove, onStart }: CardsSetupProp
               className={`color-swatch ${color === swatch ? 'is-active' : ''}`}
               style={{ background: swatch, color: swatch === '#eab308' ? '#1a1a1a' : '#fff' }}
               aria-label={`Color ${swatch}`}
+              aria-pressed={color === swatch}
               onClick={() => setColor(swatch)}
             >
-              {initials(name || '?')}
+              {/* Preview your initials only on the chosen swatch — repeating them
+                  on every color read as broken ("?" ×8 before a name is typed). */}
+              {color === swatch && name ? initials(name) : ''}
             </button>
           ))}
         </div>

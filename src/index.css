@@ -534,11 +534,21 @@ button {
 }
 
 /* ---------- Number pad ---------- */
+.numpad-wrap {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.5rem;
+}
 .numpad {
   display: grid;
   grid-template-columns: repeat(5, 1fr);
   gap: 0.4rem;
   width: min(92vmin, 540px);
+}
+.numpad-hint {
+  font-size: 0.85rem;
+  color: var(--muted, #6b7280);
 }
 .numpad-btn {
   aspect-ratio: 1 / 1;
@@ -1393,4 +1403,70 @@ button {
   .cards-playing-card.is-black {
     color: #f9fafb;
   }
+}
+
+/* Connection trouble / retry (watchdog for stalled lobby connection). */
+.connection-trouble {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 2rem 1.5rem;
+  text-align: center;
+}
+.connection-trouble-title {
+  font-weight: 700;
+  font-size: 1.1rem;
+}
+.connection-trouble-copy {
+  color: var(--muted, #6b7280);
+  max-width: 34ch;
+}
+.retry-btn {
+  margin-inline-start: 0.5rem;
+}
+
+/* Create / join a room from the landing screen. */
+.room-switcher {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+  margin-bottom: 1.25rem;
+}
+.room-switcher-label {
+  font-size: 0.85rem;
+  font-weight: 600;
+  color: var(--muted, #6b7280);
+}
+.room-switcher-current {
+  margin-inline-start: 0.35rem;
+  font-weight: 700;
+  color: inherit;
+}
+.room-switcher-controls {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+}
+.room-input {
+  flex: 1 1 12rem;
+  min-width: 0;
+  padding: 0.5rem 0.65rem;
+  border: 1px solid var(--border, #d1d5db);
+  border-radius: 0.5rem;
+  font: inherit;
+}
+.room-switcher-hint {
+  font-size: 0.8rem;
+  color: var(--muted, #6b7280);
+}
+
+/* Misconfigured build (e.g. missing VITE_PARTYKIT_HOST in prod). */
+.config-error {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 3rem 1.5rem;
+  text-align: center;
 }
