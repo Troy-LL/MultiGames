@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import usePartySocket from 'partysocket/react'
 
+import { resolveHost } from './resolveHost'
 import {
   type ChatMessage,
   type CardRank,
@@ -12,13 +13,24 @@ import {
   type WordleMode,
 } from '../../shared/protocol'
 
-const PARTYKIT_HOST =
-  (import.meta.env.VITE_PARTYKIT_HOST as string | undefined) ?? 'localhost:1999'
+const { host: PARTYKIT_HOST, configError } = resolveHost(
+  import.meta.env.VITE_PARTYKIT_HOST as string | undefined,
+  import.meta.env.PROD,
+)
+
+// Fail loudly for whoever deployed this, not just silently in the UI.
+if (configError) console.error(`[multigames] ${configError}`)
 
 export type ConnectionStatus = 'connecting' | 'online' | 'offline'
 
 export interface PartyGame {
+  /** Non-null when the app is misconfigured (e.g. missing host in prod). */
+  configError: string | null
   status: ConnectionStatus
+  /** True when we've been unable to load the game for a while (dead host,
+   * dropped snapshot, cold server) — the UI shows a Retry affordance. */
+  stalled: boolean
+  reconnect: () => void
   selfId: string | null
   game: GameSnapshot | null
   players: Player[]
@@ -38,7 +50,6 @@ export interface PartyGame {
   nextCardsRound: () => void
   skipCardsRound: () => void
   resetCards: () => void
-  join: (name: string, color: string) => void
 }
 
 const FLASH_MS = 900
@@ -48,6 +59,7 @@ export function usePartyGame(
   profile: { name: string; color: string } | null,
 ): PartyGame {
   const [status, setStatus] = useState<ConnectionStatus>('connecting')
+  const [stalled, setStalled] = useState(false)
   const [selfId, setSelfId] = useState<string | null>(null)
   const [game, setGame] = useState<GameSnapshot | null>(null)
   const [players, setPlayers] = useState<Player[]>([])
@@ -121,6 +133,7 @@ export function usePartyGame(
           setGame(msg.game)
           setPlayers(msg.players)
           setMessages(msg.messages)
+          setStalled(false)
           break
         case 'values': {
           versionRef.current = msg.version
@@ -160,6 +173,25 @@ export function usePartyGame(
     (data: unknown) => socket.send(JSON.stringify(data)),
     [socket],
   )
+
+  // Connection watchdog: if we can't get to a loaded game within a few seconds
+  // (dead host, dropped snapshot, cold server), surface a Retry instead of an
+  // indefinite silent "Loading game…" / "Connecting…".
+  // Arm a timer while we're not yet at a loaded game; the timer (not the
+  // effect body) flips `stalled`. `stalled` is cleared in the snapshot/game
+  // handlers below and in reconnect, so recovery needs no set-state-in-effect.
+  const ready = status === 'online' && game !== null
+  useEffect(() => {
+    if (ready) return
+    const timer = setTimeout(() => setStalled(true), 8000)
+    return () => clearTimeout(timer)
+  }, [ready])
+
+  const reconnect = useCallback(() => {
+    setStalled(false)
+    setStatus('connecting')
+    socket.reconnect()
+  }, [socket])
 
   // Push identity whenever the profile changes after the socket is open.
   useEffect(() => {
@@ -233,14 +265,13 @@ export function usePartyGame(
     [send],
   )
   const resetCards = useCallback(() => send({ type: 'cardsReset' }), [send])
-  const join = useCallback(
-    (name: string, color: string) => send({ type: 'join', name, color }),
-    [send],
-  )
 
   return useMemo(
     () => ({
+      configError,
       status,
+      stalled,
+      reconnect,
       selfId,
       game,
       players,
@@ -259,10 +290,11 @@ export function usePartyGame(
       nextCardsRound,
       skipCardsRound,
       resetCards,
-      join,
     }),
     [
       status,
+      stalled,
+      reconnect,
       selfId,
       game,
       players,
@@ -281,7 +313,6 @@ export function usePartyGame(
       nextCardsRound,
       skipCardsRound,
       resetCards,
-      join,
     ],
   )
 }

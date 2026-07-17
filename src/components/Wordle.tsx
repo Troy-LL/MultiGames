@@ -279,7 +279,8 @@ function WordleControls({
             type="button"
             className={`btn difficulty-btn ${nextMode === mode ? 'is-active' : ''}`}
             aria-pressed={nextMode === mode}
-            onClick={() => onReset(nextMode)}
+            // Clicking the active mode used to reset the board (data loss). No-op it.
+            onClick={() => nextMode !== mode && onReset(nextMode)}
           >
             {nextMode === 'race' ? 'Race' : 'Team'}
           </button>
