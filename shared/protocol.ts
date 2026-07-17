@@ -111,6 +111,7 @@ export type ClientMessage =
   | { type: 'chat'; text: string }
   | { type: 'reset'; difficulty: Difficulty }
   | { type: 'switchGame'; game: GameKind }
+  | { type: 'setLobbyClosed'; closed: boolean }
   | { type: 'wordleGuess'; guess: string; version: number }
   | { type: 'wordleReset'; mode: WordleMode }
   | { type: 'cardsStart' }
@@ -128,6 +129,10 @@ export type ServerMessage =
       game: GameSnapshot
       players: Player[]
       messages: ChatMessage[]
+      /** Connection id of the room host (first to join), or null if empty. */
+      hostId: string | null
+      /** When true, only the host may switch the active game. */
+      lobbyClosed: boolean
     }
   | {
       type: 'values'
@@ -140,6 +145,7 @@ export type ServerMessage =
   | { type: 'players'; players: Player[] }
   | { type: 'chat'; message: ChatMessage }
   | { type: 'reset'; game: GameSnapshot }
+  | { type: 'room'; hostId: string | null; lobbyClosed: boolean }
 
 export const MAX_CHAT_HISTORY = 100
 export const MAX_CHAT_LENGTH = 300

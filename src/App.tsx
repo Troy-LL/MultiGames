@@ -62,6 +62,9 @@ export default function App() {
     players,
     messages,
     flashing,
+    isHost,
+    lobbyClosed,
+    setLobbyClosed,
     setCursor,
     fill,
     sendChat,
@@ -107,11 +110,20 @@ export default function App() {
 
   const handleSwitchGame = useCallback(
     (gameKind: GameKind) => {
+      if (game?.kind === gameKind) return
+      // With the lobby closed, only the host can switch, and we confirm first
+      // so an accidental click can't yank everyone into a different game.
+      if (lobbyClosed) {
+        if (!isHost) return
+        const label =
+          gameKind === 'sudoku' ? 'Sudoku' : gameKind === 'wordle' ? 'Wordle' : "She's a 2"
+        if (!window.confirm(`Switch everyone to ${label}?`)) return
+      }
       setSelectedGame(gameKind)
       setSelected(null)
       switchGame(gameKind)
     },
-    [switchGame],
+    [game?.kind, isHost, lobbyClosed, switchGame],
   )
 
   const handleChooseGame = useCallback(
@@ -246,7 +258,28 @@ export default function App() {
 
       <main className="layout">
         <div className="play-area">
-          <GameTabs active={game?.kind ?? 'sudoku'} onSwitch={handleSwitchGame} />
+          <div className="game-bar">
+            <GameTabs
+              active={game?.kind ?? 'sudoku'}
+              onSwitch={handleSwitchGame}
+              isHost={isHost}
+              lobbyClosed={lobbyClosed}
+            />
+            {isHost && (
+              <button
+                type="button"
+                className="btn lobby-toggle"
+                onClick={() => setLobbyClosed(!lobbyClosed)}
+                title={
+                  lobbyClosed
+                    ? 'Reopen the lobby so anyone can switch games'
+                    : 'Close the lobby so only you can switch games'
+                }
+              >
+                {lobbyClosed ? 'Reopen lobby' : 'Close lobby'}
+              </button>
+            )}
+          </div>
           {game ? (
             game.kind === 'sudoku' ? (
               <>
@@ -439,10 +472,23 @@ function CardsModePicker({ onChoose }: { onChoose: (mode: CardsPlayMode) => void
 function GameTabs({
   active,
   onSwitch,
+  isHost,
+  lobbyClosed,
 }: {
   active: GameKind
   onSwitch: (game: GameKind) => void
+  isHost: boolean
+  lobbyClosed: boolean
 }) {
+  // Lobby closed: only the host sees the tabs; others get a note instead, so a
+  // stray click can't switch the game mid-play.
+  if (lobbyClosed && !isHost) {
+    return (
+      <p className="game-tabs-locked" aria-live="polite">
+        🔒 The host controls the game
+      </p>
+    )
+  }
   return (
     <div className="game-tabs" role="tablist" aria-label="Game">
       {(['sudoku', 'wordle', 'cards'] as const).map((game) => (

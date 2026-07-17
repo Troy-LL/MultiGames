@@ -101,6 +101,11 @@ export class MultiplayerGameServer extends Server<Env> {
   private players = new Map<string, Player>()
   private messages: ChatMessage[] = []
 
+  // Room host = first connection to join. When lobbyClosed is true, only the
+  // host may switch the active game (prevents accidental switches mid-game).
+  private hostId: string | null = null
+  private lobbyClosed = false
+
   onStart() {
     this.newSudokuGame('easy')
     this.resetWordle('race')
@@ -342,19 +347,36 @@ export class MultiplayerGameServer extends Server<Env> {
       this.cardsDescriberOrder.push(conn.id)
     }
 
+    // First player in an empty room becomes the host.
+    const hostChanged = this.hostId === null
+    if (hostChanged) this.hostId = conn.id
+
     this.send(conn, {
       type: 'snapshot',
       self: conn.id,
       game: this.snapshotFor(conn.id),
       players: [...this.players.values()],
       messages: this.messages,
+      hostId: this.hostId,
+      lobbyClosed: this.lobbyClosed,
     })
     this.broadcastPlayers()
+    if (hostChanged) this.broadcastRoom()
+  }
+
+  private broadcastRoom() {
+    this.sendAll({ type: 'room', hostId: this.hostId, lobbyClosed: this.lobbyClosed })
   }
 
   onClose(conn: Connection) {
     this.players.delete(conn.id)
     this.wordleBoards.delete(conn.id)
+    // Host left: hand off to the next remaining player (or null if empty).
+    let hostChanged = false
+    if (this.hostId === conn.id) {
+      this.hostId = this.players.keys().next().value ?? null
+      hostChanged = true
+    }
     this.cardsCollected.delete(conn.id)
     this.cardsDescriberOrder = this.cardsDescriberOrder.filter((id) => id !== conn.id)
     if (this.cardsDescriberId === conn.id) {
@@ -366,6 +388,7 @@ export class MultiplayerGameServer extends Server<Env> {
       }
     }
     this.broadcastPlayers()
+    if (hostChanged) this.broadcastRoom()
     if (this.activeGame === 'wordle' || this.activeGame === 'cards') {
       this.broadcastActiveGame()
     }
@@ -462,6 +485,8 @@ export class MultiplayerGameServer extends Server<Env> {
         break
       }
       case 'switchGame': {
+        // When the lobby is closed, only the host may change the game.
+        if (this.lobbyClosed && sender.id !== this.hostId) break
         if (msg.game !== 'sudoku' && msg.game !== 'wordle' && msg.game !== 'cards') break
         this.activeGame = msg.game
         if (this.activeGame === 'wordle') this.ensureWordleIsCurrent()
@@ -471,6 +496,13 @@ export class MultiplayerGameServer extends Server<Env> {
         for (const activePlayer of this.players.values()) activePlayer.cursor = null
         this.broadcastActiveGame()
         this.broadcastPlayers()
+        break
+      }
+      case 'setLobbyClosed': {
+        // Only the host may open/close the lobby.
+        if (sender.id !== this.hostId) break
+        this.lobbyClosed = Boolean(msg.closed)
+        this.broadcastRoom()
         break
       }
       case 'wordleGuess': {
