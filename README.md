@@ -1,12 +1,13 @@
-# Multiplayer Sudoku + Wordle 🧩
+# MultiGames — Sudoku + Wordle + Cards 🧩
 
-A minimalist, accessible multiplayer Sudoku and daily Wordle room built with
+A minimalist, accessible multiplayer game room built with
 **React + TypeScript + Vite** on the front end and **[PartyKit](https://partykit.io)**
 for real-time multiplayer.
 
-Players choose Sudoku or Wordle from a landing page after joining a room. They can
-share one Sudoku board, race or team up on daily Wordle, see each other's masked
-Wordle boards, and chat in a side panel (desktop) / bottom panel (mobile).
+Players choose Sudoku, Wordle, or the "She's a 2" card game from a landing page after
+joining a room. They can share one Sudoku board, race or team up on daily Wordle, see
+each other's masked Wordle boards, play a pass-&-play card guessing game, and chat in a
+side panel (desktop) / bottom panel (mobile).
 
 ## Features
 
@@ -23,6 +24,8 @@ Wordle boards, and chat in a side panel (desktop) / bottom panel (mobile).
   race/team modes, and standings by guesses then time.
 - **Private letters** — each player sees their own Wordle letters; everyone else only sees
   colored result tiles and progress.
+- **"She's a 2" card game** — a describer/guesser card game with pass-&-play (local) and
+  multiplayer modes; players collect cards and the most cards wins.
 
 ## Getting started
 
@@ -56,12 +59,13 @@ the `?room=<name>` query param (defaults to `lobby`).
 shared/         Code shared between client and server
   sudoku.ts     Puzzle generation, solving, conflict detection
   wordle.ts     Daily answer schedule + Wordle scoring
+  cards.ts      Deck + card types; cardsGame.ts holds "She's a 2" game logic
   protocol.ts   WebSocket message types (ClientMessage / ServerMessage)
 party/
   server.ts     PartyKit room server: holds game state + players + chat, broadcasts updates
 src/
   App.tsx       Layout + glue
-  components/    Board, Wordle, Chat, Players, Controls, Join
+  components/    Board, Wordle, Cards, CardsSetup, Chat, Players, Controls, Join
   lib/
     usePartyGame.ts  React hook wrapping the PartySocket connection + state
     colors.ts        Palette + helpers (initials, readable text color)
