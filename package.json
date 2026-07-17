@@ -9,13 +9,14 @@
   "scripts": {
     "dev": "concurrently -k -n web,party -c blue,magenta \"npm:dev:web\" \"npm:dev:party\"",
     "dev:web": "vite",
-    "dev:party": "partykit dev",
+    "dev:party": "wrangler dev --port 1999",
     "build": "tsc -b && vite build",
     "lint": "eslint .",
     "preview": "vite preview",
-    "deploy": "partykit deploy"
+    "deploy": "wrangler deploy"
   },
   "dependencies": {
+    "partyserver": "^0.5.8",
     "partysocket": "^1.2.0",
     "react": "^19.2.7",
     "react-dom": "^19.2.7"

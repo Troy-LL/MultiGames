@@ -15,6 +15,17 @@ import {
 const PARTYKIT_HOST =
   (import.meta.env.VITE_PARTYKIT_HOST as string | undefined) ?? 'localhost:1999'
 
+// In a production build (e.g. Vercel) the client cannot reach localhost:1999 —
+// VITE_PARTYKIT_HOST must point at the deployed PartyKit host. Warn loudly so a
+// misconfigured deploy is obvious instead of silently failing to connect.
+if (import.meta.env.PROD && !import.meta.env.VITE_PARTYKIT_HOST) {
+  console.error(
+    'VITE_PARTYKIT_HOST is not set. Multiplayer will not work in production. ' +
+      'Deploy the PartyKit server (`npm run deploy`) and set VITE_PARTYKIT_HOST ' +
+      'in your Vercel project to the deployed host, then redeploy.',
+  )
+}
+
 export type ConnectionStatus = 'connecting' | 'online' | 'offline'
 
 export interface PartyGame {

@@ -1,4 +1,4 @@
-import type * as Party from 'partykit/server'
+import { Server, routePartykitRequest, type Connection } from 'partyserver'
 
 import {
   createDeck,
@@ -68,7 +68,7 @@ function sanitizeColor(color: unknown, fallback: string): string {
   return typeof color === 'string' && HEX_COLOR.test(color) ? color : fallback
 }
 
-export default class MultiplayerGameServer implements Party.Server {
+export class MultiplayerGameServer extends Server<Env> {
   private activeGame: GameKind = 'sudoku'
 
   private sudokuVersion = 0
@@ -100,8 +100,6 @@ export default class MultiplayerGameServer implements Party.Server {
 
   private players = new Map<string, Player>()
   private messages: ChatMessage[] = []
-
-  constructor(readonly room: Party.Room) {}
 
   onStart() {
     this.newSudokuGame('easy')
@@ -313,21 +311,21 @@ export default class MultiplayerGameServer implements Party.Server {
     return this.sudokuSnapshot()
   }
 
-  private broadcast(message: ServerMessage, exclude?: string[]) {
-    this.room.broadcast(JSON.stringify(message), exclude)
+  private sendAll(message: ServerMessage, exclude?: string[]) {
+    super.broadcast(JSON.stringify(message), exclude)
   }
 
-  private send(conn: Party.Connection, message: ServerMessage) {
+  private send(conn: Connection, message: ServerMessage) {
     conn.send(JSON.stringify(message))
   }
 
   private broadcastActiveGame() {
-    for (const conn of this.room.getConnections()) {
+    for (const conn of this.getConnections()) {
       this.send(conn, { type: 'game', game: this.snapshotFor(conn.id) })
     }
   }
 
-  onConnect(conn: Party.Connection) {
+  onConnect(conn: Connection) {
     const player: Player = {
       id: conn.id,
       name: 'Guest',
@@ -354,7 +352,7 @@ export default class MultiplayerGameServer implements Party.Server {
     this.broadcastPlayers()
   }
 
-  onClose(conn: Party.Connection) {
+  onClose(conn: Connection) {
     this.players.delete(conn.id)
     this.wordleBoards.delete(conn.id)
     this.cardsCollected.delete(conn.id)
@@ -374,13 +372,14 @@ export default class MultiplayerGameServer implements Party.Server {
   }
 
   private broadcastPlayers() {
-    this.broadcast({ type: 'players', players: [...this.players.values()] })
+    this.sendAll({ type: 'players', players: [...this.players.values()] })
   }
 
-  onMessage(raw: string, sender: Party.Connection) {
+  onMessage(sender: Connection, raw: string | ArrayBuffer) {
+    const text = typeof raw === 'string' ? raw : new TextDecoder().decode(raw)
     let msg: ClientMessage
     try {
-      msg = JSON.parse(raw) as ClientMessage
+      msg = JSON.parse(text) as ClientMessage
     } catch {
       return
     }
@@ -424,7 +423,7 @@ export default class MultiplayerGameServer implements Party.Server {
         if (this.sudokuValues[index] === value) break
         this.sudokuValues[index] = value
         this.sudokuSolved = isSolved(this.sudokuValues)
-        this.broadcast({
+        this.sendAll({
           type: 'values',
           version: this.sudokuVersion,
           values: this.sudokuValues,
@@ -448,7 +447,7 @@ export default class MultiplayerGameServer implements Party.Server {
         if (this.messages.length > MAX_CHAT_HISTORY) {
           this.messages = this.messages.slice(-MAX_CHAT_HISTORY)
         }
-        this.broadcast({ type: 'chat', message })
+        this.sendAll({ type: 'chat', message })
         break
       }
       case 'reset': {
@@ -458,7 +457,7 @@ export default class MultiplayerGameServer implements Party.Server {
             ? msg.difficulty
             : 'easy'
         this.newSudokuGame(difficulty)
-        this.broadcast({ type: 'reset', game: this.sudokuSnapshot() })
+        this.sendAll({ type: 'reset', game: this.sudokuSnapshot() })
         this.broadcastPlayers()
         break
       }
@@ -606,4 +605,18 @@ export default class MultiplayerGameServer implements Party.Server {
   }
 }
 
-MultiplayerGameServer satisfies Party.Worker
+interface Env {
+  // Durable Object binding. Named MAIN so partysocket's default party ("main")
+  // routes here via routePartykitRequest (it matches the URL party segment to a
+  // binding name case-insensitively).
+  MAIN: DurableObjectNamespace<MultiplayerGameServer>
+}
+
+export default {
+  async fetch(request: Request, env: Env): Promise<Response> {
+    return (
+      (await routePartykitRequest(request, env as never)) ||
+      new Response('Not found', { status: 404 })
+    )
+  },
+} satisfies ExportedHandler<Env>
