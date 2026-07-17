@@ -11,3 +11,6 @@ npm-debug.log*
 
 .wrangler/
 test-results/
+
+.vercel
+.env*
