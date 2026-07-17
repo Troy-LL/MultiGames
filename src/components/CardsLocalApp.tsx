@@ -37,7 +37,6 @@ export function CardsLocalApp({ onBack }: CardsLocalAppProps) {
             status="local"
             roster={local.players}
             holderId={local.holderId}
-            guessedThisRound={local.guessedThisRound}
             onClaimDevice={local.claimDevice}
             onReleaseDevice={local.releaseDevice}
             onStart={local.start}

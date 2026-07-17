@@ -290,10 +290,21 @@ export default class MultiplayerGameServer implements Party.Server {
       cardsRemaining: this.cardsDeck.length,
       scores: this.cardsScores(),
       currentCard: showCard ? this.cardsCurrent : null,
+      guessedThisRound: [...this.cardsGuessedThisRound],
       lastWinnerId: this.cardsLastWinnerId,
       finished: this.cardsFinished,
       winnerId: this.cardsWinnerId,
     }
+  }
+
+  private allCardsGuessersHaveGuessed(): boolean {
+    const guessers = [...this.players.keys()].filter(
+      (id) => id !== this.cardsDescriberId,
+    )
+    return (
+      guessers.length > 0 &&
+      guessers.every((id) => this.cardsGuessedThisRound.has(id))
+    )
   }
 
   private snapshotFor(viewerId: string): GameSnapshot {
@@ -533,7 +544,16 @@ export default class MultiplayerGameServer implements Party.Server {
         const rank = msg.rank as CardRank
         if (!rank) break
         this.cardsGuessedThisRound.add(sender.id)
-        if (rank !== this.cardsCurrent.rank) break
+        if (rank !== this.cardsCurrent.rank) {
+          if (this.allCardsGuessersHaveGuessed()) {
+            this.cardsDeck.unshift(this.cardsCurrent)
+            this.cardsLastWinnerId = null
+            this.cardsPhase = 'resolved'
+          }
+          this.cardsVersion++
+          this.broadcastActiveGame()
+          break
+        }
 
         this.ensureCardsPlayer(sender.id)
         this.cardsCollected.get(sender.id)?.push(this.cardsCurrent)
@@ -568,7 +588,6 @@ export default class MultiplayerGameServer implements Party.Server {
         if (this.cardsPhase !== 'describing' || !this.cardsCurrent) break
         if (sender.id !== this.cardsDescriberId) break
         this.cardsDeck.unshift(this.cardsCurrent)
-        this.cardsCurrent = null
         this.cardsGuessedThisRound.clear()
         this.cardsPhase = 'resolved'
         this.cardsLastWinnerId = null

@@ -1056,6 +1056,15 @@ button {
   display: grid;
   gap: 1rem;
 }
+.cards-status-banner {
+  margin: 0;
+  padding: 0.65rem 0.85rem;
+  border-radius: 0.5rem;
+  background: color-mix(in srgb, var(--accent) 12%, transparent);
+  color: var(--text);
+  font-size: 0.95rem;
+  line-height: 1.4;
+}
 .cards-controls {
   display: flex;
   flex-wrap: wrap;

@@ -88,6 +88,8 @@ export interface CardsSnapshot {
   scores: CardsPlayerScore[]
   /** Hidden from guessers during the describing phase. */
   currentCard: PlayingCard | null
+  /** Player ids who already guessed this round (wrong or right). */
+  guessedThisRound: string[]
   lastWinnerId: string | null
   finished: boolean
   winnerId: string | null
