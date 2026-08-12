@@ -1,13 +1,10 @@
-# MultiGames — Sudoku + Wordle + Cards 🧩
+# MultiGames
 
-A minimalist, accessible multiplayer game room built with
-**React + TypeScript + Vite** on the front end and **[PartyKit](https://partykit.io)**
-for real-time multiplayer.
+Sudoku, Wordle, and a card game in one room. Play together.
 
-Players choose Sudoku, Wordle, or the "She's a 2" card game from a landing page after
-joining a room. They can share one Sudoku board, race or team up on daily Wordle, see
-each other's masked Wordle boards, play a pass-&-play card guessing game, and chat in a
-side panel (desktop) / bottom panel (mobile).
+Live: https://multi-games-plum.vercel.app
+
+React + TypeScript + Vite, with PartyKit for realtime. Join a room, pick a game, share a Sudoku board, race or team on daily Wordle, or play "She's a 2" cards. Chat sits on the side on desktop and under the board on a phone.
 
 ## Features
 
