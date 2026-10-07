@@ -1,0 +1,13 @@
+{
+  "$schema": "node_modules/wrangler/config-schema.json",
+  "name": "multigames-party",
+  "main": "party/server.ts",
+  "compatibility_date": "2025-03-01",
+  "durable_objects": {
+    "bindings": [{ "name": "MAIN", "class_name": "MultiplayerGameServer" }]
+  },
+  // SQLite-backed Durable Objects are required for the free plan.
+  "migrations": [
+    { "tag": "v1", "new_sqlite_classes": ["MultiplayerGameServer"] }
+  ]
+}

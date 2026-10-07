@@ -375,6 +375,35 @@ button {
   box-shadow: var(--shadow);
 }
 
+.game-bar {
+  width: min(92vmin, 540px);
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
+  gap: 0.5rem;
+}
+
+.game-bar .game-tabs {
+  width: 100%;
+}
+
+.lobby-toggle {
+  align-self: flex-end;
+  padding: 0.35rem 0.85rem;
+  font-size: 0.85rem;
+}
+
+.game-tabs-locked {
+  margin: 0;
+  padding: 0.55rem 0.75rem;
+  text-align: center;
+  color: var(--text-muted);
+  font-weight: 600;
+  background: var(--surface-2);
+  border: 1px solid var(--border);
+  border-radius: 999px;
+}
+
 .sidebar {
   display: flex;
   flex-direction: column;

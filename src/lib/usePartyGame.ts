@@ -21,6 +21,17 @@ const { host: PARTYKIT_HOST, configError } = resolveHost(
 // Fail loudly for whoever deployed this, not just silently in the UI.
 if (configError) console.error(`[multigames] ${configError}`)
 
+// In a production build (e.g. Vercel) the client cannot reach localhost:1999 —
+// VITE_PARTYKIT_HOST must point at the deployed PartyKit host. Warn loudly so a
+// misconfigured deploy is obvious instead of silently failing to connect.
+if (import.meta.env.PROD && !import.meta.env.VITE_PARTYKIT_HOST) {
+  console.error(
+    'VITE_PARTYKIT_HOST is not set. Multiplayer will not work in production. ' +
+      'Deploy the PartyKit server (`npm run deploy`) and set VITE_PARTYKIT_HOST ' +
+      'in your Vercel project to the deployed host, then redeploy.',
+  )
+}
+
 export type ConnectionStatus = 'connecting' | 'online' | 'offline'
 
 export interface PartyGame {
@@ -37,6 +48,11 @@ export interface PartyGame {
   messages: ChatMessage[]
   /** Cells another player changed recently, for a brief highlight. */
   flashing: ReadonlySet<number>
+  /** True when this client is the room host. */
+  isHost: boolean
+  /** When true, only the host may switch the active game. */
+  lobbyClosed: boolean
+  setLobbyClosed: (closed: boolean) => void
   setCursor: (index: number | null) => void
   fill: (index: number, value: number) => void
   sendChat: (text: string) => void
@@ -65,6 +81,8 @@ export function usePartyGame(
   const [players, setPlayers] = useState<Player[]>([])
   const [messages, setMessages] = useState<ChatMessage[]>([])
   const [flashing, setFlashing] = useState<Set<number>>(() => new Set())
+  const [hostId, setHostId] = useState<string | null>(null)
+  const [lobbyClosed, setLobbyClosedState] = useState(false)
 
   // Refs let the (stable) socket handlers and callbacks read the latest values
   // without recreating the socket connection.
@@ -134,6 +152,8 @@ export function usePartyGame(
           setPlayers(msg.players)
           setMessages(msg.messages)
           setStalled(false)
+          setHostId(msg.hostId)
+          setLobbyClosedState(msg.lobbyClosed)
           break
         case 'values': {
           versionRef.current = msg.version
@@ -164,6 +184,10 @@ export function usePartyGame(
           versionRef.current = msg.game.version
           setGame(msg.game)
           clearFlashes()
+          break
+        case 'room':
+          setHostId(msg.hostId)
+          setLobbyClosedState(msg.lobbyClosed)
           break
       }
     },
@@ -237,6 +261,10 @@ export function usePartyGame(
     (game: GameKind) => send({ type: 'switchGame', game }),
     [send],
   )
+  const setLobbyClosed = useCallback(
+    (closed: boolean) => send({ type: 'setLobbyClosed', closed }),
+    [send],
+  )
   const submitWordleGuess = useCallback(
     (guess: string) =>
       send({ type: 'wordleGuess', guess, version: versionRef.current }),
@@ -277,6 +305,9 @@ export function usePartyGame(
       players,
       messages,
       flashing,
+      isHost: selfId !== null && selfId === hostId,
+      lobbyClosed,
+      setLobbyClosed,
       setCursor,
       fill,
       sendChat,
@@ -300,6 +331,9 @@ export function usePartyGame(
       players,
       messages,
       flashing,
+      hostId,
+      lobbyClosed,
+      setLobbyClosed,
       setCursor,
       fill,
       sendChat,
