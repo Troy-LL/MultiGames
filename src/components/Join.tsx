@@ -25,7 +25,7 @@ export function Join({ onJoin }: JoinProps) {
     <div className="join-screen">
       <form className="join-card" onSubmit={submit}>
         <h1 className="join-title">Multiplayer Games</h1>
-        <p className="join-sub">Pick a name and color to play Sudoku or daily Wordle.</p>
+        <p className="join-sub">Pick a name and color to play Sudoku, daily Wordle, or She&apos;s a 2.</p>
 
         <label className="field-label" htmlFor="name-input">
           Your name

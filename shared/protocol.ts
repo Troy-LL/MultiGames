@@ -33,8 +33,6 @@ export interface SudokuSnapshot {
    * `fill` that was in flight when another player started a new game).
    */
   version: number
-  /** Original clues; 0 = empty. Used to know which cells are locked. */
-  puzzle: number[]
   /** True where the cell is a fixed clue and cannot be edited. */
   given: boolean[]
   /** Current values for every cell (includes the givens). */
